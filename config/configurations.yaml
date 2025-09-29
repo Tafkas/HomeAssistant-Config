@@ -1,0 +1,217 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+template:
+  - sensor:
+      - name: "Self Consumed Solar Energy Today"
+        unique_id: self_consumed_solar_energy_today
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:solar-power-variant
+        availability: >
+          {% set solar_production_state = states('sensor.daily_solar_production') %}
+          {% set grid_export_state = states('sensor.daily_grid_export') %}
+          {{ solar_production_state not in ['unknown', 'unavailable'] and
+             grid_export_state not in ['unknown', 'unavailable'] and
+             is_number(solar_production_state) and
+             is_number(grid_export_state) }}
+        state: >
+          {% set solar_production = states('sensor.daily_solar_production') | float(0) %}
+          {% set grid_export = states('sensor.daily_grid_export') | float(0) %}
+          {% set self_consumed = solar_production - grid_export %}
+          {{ self_consumed if self_consumed >= 0 else 0 }}
+
+      - name: "Monthly Self Consumed Solar Energy"
+        unique_id: monthly_self_consumed_solar_energy
+        state: >
+          {% set solar = states('sensor.monthly_solar_production') | float(0) %}
+          {% set export = states('sensor.monthly_grid_export') | float(0) %}
+          {{ (solar - export) | float(0) | round(2) }}
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        availability: >
+          {{ states('sensor.monthly_solar_production') not in ['unknown', 'unavailable'] and
+             states('sensor.monthly_grid_export') not in ['unknown', 'unavailable'] }}
+
+      - name: "Vacuum Last Duration (h)"
+        unique_id: "vacuum_last_duration_hours"
+        unit_of_measurement: "h"
+        state: "{{ (states('sensor.roborock_qrevo_pro_cleaning_time') | float(0) / 3600) | round(1) }}"
+        icon: mdi:timer-outline
+
+      - name: "Vacuum Filter Time Left Hours"
+        unique_id: "vacuum_filter_time_left_hours"
+        unit_of_measurement: "h"
+        state: "{{ (states('sensor.roborock_qrevo_pro_filter_time_left') | float(0) / 3600) | round(1) }}"
+        icon: mdi:air-filter
+
+      - name: "Vacuum Main Brush Time Left Hours"
+        unique_id: "vacuum_main_brush_time_left_hours"
+        unit_of_measurement: "h"
+        state: "{{ (states('sensor.roborock_qrevo_pro_main_brush_time_left') | float(0) / 3600) | round(1) }}"
+        icon: mdi:brush
+
+      - name: "Vacuum Side Brush Time Left Hours"
+        unique_id: "vacuum_side_brush_time_left_hours"
+        unit_of_measurement: "h"
+        state: "{{ (states('sensor.roborock_qrevo_pro_side_brush_time_left') | float(0) / 3600) | round(1) }}"
+        icon: mdi:brush-variant
+
+      - name: "Vacuum Sensor Time Left Hours"
+        unique_id: "vacuum_sensor_time_left_hours"
+        unit_of_measurement: "h"
+        state: "{{ (states('sensor.roborock_qrevo_pro_sensor_time_left') | float(0) / 3600) | round(1) }}"
+        icon: mdi:eye-settings-outline
+
+      - name: "Vacuum Total Cleaning Time Hours"
+        unique_id: "vacuum_total_cleaning_time_hours"
+        unit_of_measurement: "h"
+        state: "{{ (states('sensor.roborock_qrevo_pro_total_cleaning_time') | float(0) / 3600) | round(1) }}"
+        icon: mdi:timer-sand
+
+      - name: "Vacuum Mop Drying Time Left Hours"
+        unique_id: "vacuum_mop_drying_time_left_hours"
+        unit_of_measurement: "h"
+        state: "{{ (states('sensor.roborock_qrevo_pro_dock_mop_drying_remaining_time') | float(0) / 3600) | round(1) }}"
+        icon: mdi:water-boiler
+
+  - sensor:
+      - name: "Excess Solar Export"
+        unique_id: excess_solar_export_w
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        icon: mdi:solar-power
+        availability: >-
+          {{ states('sensor.shellypro3em_08f9e0e88160_total_active_power') not in ['unknown', 'unavailable'] }}
+        state: >-
+          {% set p = states('sensor.shellypro3em_08f9e0e88160_total_active_power') | float(0) %}
+          {{ (-p if p < 0 else 0) | round(0) }}
+
+  - sensor:
+      - name: "Ebike Charging Minutes Today"
+        unique_id: ebike_charging_minutes_today
+        unit_of_measurement: "min"
+        icon: mdi:timer-outline
+        state: >-
+          {{ (states('sensor.ebike_charging_hours_today_raw') | float(0) * 60) | round(0) }}
+
+  - sensor:
+      - name: "Ebike Estimated Energy Today"
+        unique_id: ebike_est_energy_today_wh
+        unit_of_measurement: "Wh"
+        icon: mdi:battery-charging-70
+        state: >-
+          {% set mins = states('sensor.ebike_charging_minutes_today') | float(0) %}
+          {% set w = states('input_number.ebike_charger_watts') | float(150) %}
+          {{ (mins/60 * w) | round(0) }}
+
+sensor:
+  - platform: history_stats
+    name: Ebike Charging Hours Today Raw
+    entity_id: switch.shellyplugsg3_28372f2f1e04
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+
+input_select:
+  ebike_charge_state:
+    name: Ebike Charge State
+    options:
+      - idle
+      - charging
+      - charged
+      - paused
+    initial: idle
+    icon: mdi:bicycle
+
+input_number:
+  ebike_start_threshold_w:
+    name: Start export threshold (W)
+    min: 0
+    max: 3000
+    step: 10
+    unit_of_measurement: "W"
+    mode: box
+    initial: 200
+  ebike_stop_threshold_w:
+    name: Stop export threshold (W)
+    min: 0
+    max: 3000
+    step: 10
+    unit_of_measurement: "W"
+    mode: box
+    initial: 100
+  ebike_start_dwell_min:
+    name: Start dwell (min)
+    min: 0
+    max: 60
+    step: 1
+    mode: box
+    initial: 3
+  ebike_stop_dwell_min:
+    name: Stop dwell (min)
+    min: 0
+    max: 60
+    step: 1
+    mode: box
+    initial: 2
+  ebike_min_charge_min:
+    name: Minimum charge run (min)
+    min: 0
+    max: 120
+    step: 1
+    mode: box
+    initial: 10
+  ebike_min_pause_min:
+    name: Minimum pause time (min)
+    min: 0
+    max: 120
+    step: 1
+    mode: box
+    initial: 10
+  ebike_daily_target_minutes:
+    name: Daily target charge (min)
+    min: 0
+    max: 600
+    step: 5
+    mode: box
+    initial: 120
+  ebike_charger_watts:
+    name: Charger watts
+    min: 0
+    max: 1000
+    step: 10
+    mode: box
+    initial: 150
+
+input_boolean:
+  ebike_offpeak_backup:
+    name: Allow off-peak backup charging
+    icon: mdi:clock-check
+    initial: off
+  ebike_block_peak:
+    name: Block charging during peak
+    icon: mdi:flash-alert
+    initial: off
+
+input_datetime:
+  ebike_last_on:
+    name: Ebike last ON
+    has_date: true
+    has_time: true
+  ebike_last_off:
+    name: Ebike last OFF
+    has_date: true
+    has_time: true

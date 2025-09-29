@@ -1,0 +1,1586 @@
+- id: '1725993955289'
+  alias: Hans Night Light Off
+  description: Turn off the light every hour from midnight to 6 a.m.
+  trigger:
+    - platform: time_pattern
+      hours: /1
+      minutes: '0'
+      seconds: '0'
+  condition:
+    - condition: time
+      after: 00:00:00
+      before: 06:00:00
+  action:
+    - action: light.turn_off
+      metadata: { }
+      data: { }
+      target:
+        device_id: 54d1e5e77af5d9e88f5d090ab3027444
+  mode: single
+- id: iphone_12_pro_location_monitor
+  alias: iPhone 12 Pro Location Change
+  description: Monitor iPhone 12 Pro presence and notify when device leaves home
+  triggers:
+    - entity_id: device_tracker.iphone12pro
+      to: not_home
+      for:
+        minutes: 5
+      trigger: state
+  conditions:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    - condition: template
+      value_template: '{{ states(''sensor.iphone_12_pro_battery_level'')|float > 15
+      }}'
+  actions:
+    - data:
+        title: Device Location Alert
+        message: 'iPhone 12 Pro has left home at {{ now().strftime(''%H:%M'') }}. Battery:
+        {{ states(''sensor.iphone_12_pro_battery_level'') }}%
+
+        '
+        data:
+          push:
+            sound: default
+      action: notify.mobile_app_iphone_12_pro
+    - data:
+        title: Device Left Home
+        message: iPhone 12 Pro left home zone
+      action: persistent_notification.create
+  mode: single
+- id: '1730111291562'
+  alias: Bedroom CO2 Monitor
+  description: Monitors bedroom CO2 levels and sends notifications at different thresholds
+  triggers:
+    - entity_id: sensor.living_room_station_bedroom_carbon_dioxide
+      above: 1000
+      for: 00:05:00
+      trigger: numeric_state
+  conditions:
+    - condition: template
+      value_template: '{{ states(''sensor.living_room_station_bedroom_carbon_dioxide'')
+      not in [''unavailable'', ''unknown''] }}'
+  actions:
+    - choose:
+        - conditions:
+            - condition: numeric_state
+              entity_id: sensor.living_room_station_bedroom_carbon_dioxide
+              above: 2000
+          sequence:
+            - data:
+                message: 'CO2 level in the bed room is high: {{ co2_level }} ppm. Please
+            ventilate the room.'
+              action: notify.notify
+            - target:
+                entity_id: script.emergency_ventilation
+              action: script.turn_on
+        - conditions:
+            - condition: numeric_state
+              entity_id: sensor.living_room_station_bedroom_carbon_dioxide
+              above: 1500
+              below: 2000
+          sequence:
+            - data:
+                message: 'WARNING: CO2 level very high: {{ states(''sensor.living_room_station_bedroom_carbon_dioxide'')
+            }} ppm. Consider ventilation.'
+              action: notify.notify
+      default:
+        - data:
+            message: 'Notice: CO2 level elevated: {{ states(''sensor.living_room_station_bedroom_carbon_dioxide'')
+          }} ppm'
+          action: notify.notify
+    - delay: 01:00:00
+- id: '1730111344516'
+  alias: Living Room CO2 Monitor
+  description: Monitors living room CO2 levels and sends notifications when exceeding
+    safe thresholds, preventing spam.
+  triggers:
+    - entity_id: sensor.living_room_station_carbon_dioxide
+      above: 1000
+      for:
+        minutes: 5
+      id: high_co2
+      trigger: numeric_state
+    - entity_id: sensor.living_room_station_carbon_dioxide
+      below: 800
+      for:
+        minutes: 2
+      id: normal_co2
+      trigger: numeric_state
+  conditions:
+    - condition: template
+      value_template: '{{ states(trigger.entity_id) | float(-1) != -1 }}'
+  actions:
+    - choose:
+        - conditions:
+            - condition: trigger
+              id: high_co2
+            - condition: state
+              entity_id: input_boolean.living_room_co2_high_alert
+              state: 'off'
+          sequence:
+            - data:
+                title: Living Room High CO2 Warning
+                message: 'CO2 level in the living room is high: {{ co2_level }} ppm. Please
+            ventilate the room.'
+                data:
+                  priority: high
+                  ttl: 0
+              action: notify.notify
+            - entity_id: input_boolean.living_room_co2_high_alert
+              action: input_boolean.turn_on
+        - conditions:
+            - condition: trigger
+              id: normal_co2
+            - condition: state
+              entity_id: input_boolean.living_room_co2_high_alert
+              state: 'on'
+          sequence:
+            - data:
+                title: Living Room CO2 Levels Normal
+                message: 'Living Room CO2 has returned to normal: {{ co2_level }} ppm'
+              action: notify.notify
+            - entity_id: input_boolean.living_room_co2_high_alert
+              action: input_boolean.turn_off
+  variables:
+    co2_level: '{{ trigger.to_state.state | float(0) | round(0) }}'
+  mode: restart
+- id: '1730114038122'
+  alias: Office CO2 Monitor
+  description: Monitors office CO2 levels and sends notifications when exceeding safe
+    thresholds, preventing spam.
+  triggers:
+    - entity_id: sensor.living_room_station_office_carbon_dioxide
+      above: 1000
+      for:
+        minutes: 5
+      id: high_co2
+      trigger: numeric_state
+    - entity_id: sensor.living_room_station_office_carbon_dioxide
+      below: 800
+      for:
+        minutes: 2
+      id: normal_co2
+      trigger: numeric_state
+  conditions:
+    - condition: template
+      value_template: '{{ states(trigger.entity_id) | float(-1) != -1 }}'
+  actions:
+    - choose:
+        - conditions:
+            - condition: trigger
+              id: high_co2
+            - condition: state
+              entity_id: input_boolean.office_co2_high_alert
+              state: 'off'
+          sequence:
+            - data:
+                title: High CO2 Warning
+                message: 'Office CO2 level is high: {{ co2_level }} ppm. Please ventilate
+            the room.'
+                data:
+                  priority: high
+                  ttl: 0
+              action: notify.notify
+            - entity_id: input_boolean.office_co2_high_alert
+              action: input_boolean.turn_on
+        - conditions:
+            - condition: trigger
+              id: normal_co2
+            - condition: state
+              entity_id: input_boolean.office_co2_high_alert
+              state: 'on'
+          sequence:
+            - data:
+                title: CO2 Levels Normal
+                message: 'Office CO2 has returned to normal: {{ co2_level }} ppm'
+              action: notify.notify
+            - entity_id: input_boolean.office_co2_high_alert
+              action: input_boolean.turn_off
+  variables:
+    co2_level: '{{ trigger.to_state.state | float(0) | round(0) }}'
+  mode: restart
+- id: '1730114092655'
+  alias: Kids Room CO2 Monitor
+  description: Monitors kids room CO2 levels and sends notifications when exceeding
+    safe thresholds, preventing spam.
+  triggers:
+    - entity_id: sensor.living_room_station_hans_carbon_dioxide
+      above: 1000
+      for:
+        minutes: 5
+      id: high_co2
+      trigger: numeric_state
+    - entity_id: sensor.living_room_station_hans_carbon_dioxide
+      below: 800
+      for:
+        minutes: 2
+      id: normal_co2
+      trigger: numeric_state
+  conditions:
+    - condition: template
+      value_template: '{{ states(trigger.entity_id) | float(-1) != -1 }}'
+  actions:
+    - choose:
+        - conditions:
+            - condition: trigger
+              id: high_co2
+            - condition: state
+              entity_id: input_boolean.kids_room_co2_high_alert
+              state: 'off'
+          sequence:
+            - data:
+                title: Kids Room High CO2 Warning
+                message: 'CO2 level in the kids room is high: {{ co2_level }} ppm. Please
+            ventilate the room.'
+                data:
+                  priority: high
+                  ttl: 0
+              action: notify.notify
+            - entity_id: input_boolean.kids_room_co2_high_alert
+              action: input_boolean.turn_on
+        - conditions:
+            - condition: trigger
+              id: normal_co2
+            - condition: state
+              entity_id: input_boolean.kids_room_co2_high_alert
+              state: 'on'
+          sequence:
+            - data:
+                title: Kids Room CO2 Levels Normal
+                message: 'Kids Room CO2 has returned to normal: {{ co2_level }} ppm'
+              action: notify.notify
+            - entity_id: input_boolean.kids_room_co2_high_alert
+              action: input_boolean.turn_off
+  variables:
+    co2_level: '{{ trigger.to_state.state | float(0) | round(0) }}'
+  mode: restart
+- id: '1734448535733'
+  alias: Dishwasher ready
+  description: Notification when dishwasher finishes after a cycle
+  triggers:
+    - entity_id: sensor.smart_plug_1908212877531725185548e1e90233ca_power
+      below: 1
+      for:
+        minutes: 5
+      trigger: numeric_state
+  conditions:
+    - condition: state
+      entity_id: input_boolean.dishwasher_running
+      state: 'on'
+  actions:
+    - data:
+        message: Dishwasher is ready!
+      action: notify.notify
+    - entity_id: input_boolean.dishwasher_running
+      action: input_boolean.turn_off
+  mode: single
+- id: iphone_12_pro_location_monitor
+  alias: iPhone 12 Pro Location Change
+  description: Monitor iPhone 12 Pro presence and notify when device leaves home
+  triggers:
+    - entity_id: device_tracker.iphone12pro
+      to: not_home
+      for:
+        minutes: 5
+      trigger: state
+  conditions:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    - condition: template
+      value_template: '{{ states(''sensor.iphone_12_pro_battery_level'')|float > 15
+      }}'
+  actions:
+    - data:
+        title: Device Location Alert
+        message: 'iPhone 12 Pro has left home at {{ now().strftime(''%H:%M'') }}. Battery:
+        {{ states(''sensor.iphone_12_pro_battery_level'') }}%
+
+        '
+        data:
+          push:
+            sound: default
+      action: notify.mobile_app_iphone_12_pro
+    - data:
+        title: Device Left Home
+        message: iPhone 12 Pro left home zone
+      action: persistent_notification.create
+  mode: single
+- id: iphone_12_pro_location_monitor
+  alias: iPhone 12 Pro Location Change
+  description: Monitor iPhone 12 Pro presence and notify when device leaves home
+  triggers:
+    - entity_id: device_tracker.iphone12pro
+      to: not_home
+      for:
+        minutes: 5
+      trigger: state
+  conditions:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    - condition: numeric_state
+      entity_id: sensor.iphone_12_pro_battery_level
+      above: 15
+  actions:
+    - data:
+        message: 'iPhone 12 Pro has left home at {{ now().strftime(''%H:%M'') }}. Battery:
+        {{ states(''sensor.iphone_12_pro_battery_level'') }}%
+
+        '
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: iphone_12_pro_location_monitor
+  alias: iPhone 12 Pro Location Change
+  description: Monitor iPhone 12 Pro presence and notify when device leaves home
+  triggers:
+    - entity_id: device_tracker.iphone12pro
+      to: not_home
+      for:
+        minutes: 5
+      trigger: state
+  conditions:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    - condition: template
+      value_template: '{{ states(''sensor.iphone_12_pro_battery_level'')|float > 15
+      }}'
+  actions:
+    - data:
+        title: Device Location Alert
+        message: 'iPhone 12 Pro has left home at {{ now().strftime(''%H:%M'') }}. Battery:
+        {{ states(''sensor.iphone_12_pro_battery_level'') }}%
+
+        '
+        data:
+          push:
+            sound: default
+      action: notify.mobile_app_iphone_12_pro
+    - data:
+        title: Device Left Home
+        message: iPhone 12 Pro left home zone
+      action: persistent_notification.create
+  mode: single
+- id: iphone_12_pro_location_monitor
+  alias: iPhone 12 Pro Location Change
+  description: Monitor iPhone 12 Pro presence and notify when device leaves home
+  triggers:
+    - entity_id: device_tracker.iphone12pro
+      to: not_home
+      for:
+        minutes: 5
+      trigger: state
+  conditions:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    - condition: template
+      value_template: '{{ states(''sensor.iphone_12_pro_battery_level'')|float > 15
+      }}'
+  actions:
+    - data:
+        title: Device Location Alert
+        message: 'iPhone 12 Pro has left home at {{ now().strftime(''%H:%M'') }}. Battery:
+        {{ states(''sensor.iphone_12_pro_battery_level'') }}%
+
+        '
+        data:
+          push:
+            sound: default
+      action: notify.mobile_app_iphone_12_pro
+    - data:
+        title: Device Left Home
+        message: iPhone 12 Pro left home zone
+      action: persistent_notification.create
+  mode: single
+- id: '1734543944090'
+  alias: Laundry finished
+  description: Notification when laundry finishes after a cycle
+  triggers:
+    - entity_id: sensor.smart_plug_19011801871415251h0334298f1a2070_power
+      below: 10
+      for:
+        minutes: 1
+      trigger: numeric_state
+  conditions:
+    - condition: state
+      entity_id: input_boolean.laundry_running
+      state: 'on'
+  actions:
+    - data:
+        message: Laundry is ready!
+      action: notify.notify
+    - entity_id: input_boolean.laundry_running
+      action: input_boolean.turn_off
+  mode: single
+- &id001
+  id: daily_energy_report_1059pm
+  alias: Daily Energy Report
+  description: Sends a daily energy report notification at 10:59 PM
+  triggers:
+    - at: '22:59:00'
+      trigger: time
+    - event: start
+      trigger: homeassistant
+  conditions:
+    - condition: template
+      value_template: '{{ states(''sensor.daily_solar_production'') not in [''unknown'',
+      ''unavailable''] }}'
+    - condition: template
+      value_template: '{{ states(''sensor.daily_grid_import'') not in [''unknown'',
+      ''unavailable''] }}'
+  actions:
+    - variables:
+        solar_production: '{{ states(''sensor.daily_solar_production'') | float(0) }}'
+        grid_import: '{{ states(''sensor.daily_grid_import'') | float(0) }}'
+        grid_export: '{{ states(''sensor.daily_grid_export'') | float(0) }}'
+        self_consumed_solar: '{{ states(''sensor.self_consumed_solar_energy_today'')
+        | float(0) }}'
+        total_home_usage: '{{ (self_consumed_solar + grid_import) | round(2) }}'
+    - data:
+        title: "\U0001F4CA Daily Energy Report"
+        message: "\n{% set electricity_price = 0.3370 %}  {% set amount_saved = (self_consumed_solar
+        * electricity_price) |\n float(0) %}\n\n Energy Summary for Today:\n\n Solar
+        Production: {{ solar_production | round(2) }} kWh\n Grid Import: {{ grid_import
+        | round(2) }} kWh\n Grid Export: {{ grid_export | round(2) }} kWh\n Self-Consumed
+        Solar: {{ self_consumed_solar | round(2) }} kWh\n Amount Saved: €{{ '%.2f'
+        | format(amount_saved) }} \n Total Home Usage: {{ total_home_usage }} kWh\n
+        {% if solar_production > 0 %}\n Self-Consumption Rate: {{ (self_consumed_solar
+        / solar_production * 100)\n | round(1) }}%\n {% else %}\n Self-Consumption
+        Rate: N/A (No solar production)\n {% endif %}\n {% if total_home_usage > 0
+        %}\n Self-Sufficiency Rate: {{ (self_consumed_solar / total_home_usage * 100)\n
+        | round(1) }}%\n {% else %}\n Self-Sufficiency Rate: N/A (No home usage)\n
+        {% endif %}\n"
+      action: notify.notify
+  mode: single
+- *id001
+- *id001
+- *id001
+- *id001
+- *id001
+- *id001
+- *id001
+- *id001
+- *id001
+- *id001
+- *id001
+- *id001
+- *id001
+- id: daily_weather_report_1678886400
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with comprehensive outdoor
+    conditions.
+  triggers:
+    - at: 07:35:00
+      trigger: time
+  conditions:
+    - condition: template
+      value_template: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+      | is_number }}'
+  actions:
+    - variables:
+        local_temp_raw: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+        }}'
+        local_temp: '{{ local_temp_raw | float(none) }}'
+        owm_condition: '{{ states(''sensor.openweathermap_condition'') }}'
+        owm_temp: '{{ states(''sensor.openweathermap_temperature'') | float(none) }}'
+        owm_feels_like: '{{ states(''sensor.openweathermap_feels_like_temperature'')
+        | float(none) }}'
+        owm_humidity: '{{ states(''sensor.openweathermap_humidity'') | int(none) }}'
+        owm_wind_speed: '{{ states(''sensor.openweathermap_wind_speed'') | float(none)
+        }}'
+        owm_wind_bearing: '{{ states(''sensor.openweathermap_wind_bearing'') | int(none)
+        }}'
+        owm_pressure: '{{ states(''sensor.openweathermap_pressure'') | float(none) }}'
+        owm_rain: '{{ states(''sensor.openweathermap_rain'') | float(0) }}'
+        owm_snow: '{{ states(''sensor.openweathermap_snow'') | float(0) }}'
+        owm_uv_index: '{{ states(''sensor.openweathermap_uv_index'') | float(none) }}'
+        owm_precipitation_kind: '{{ states(''sensor.openweathermap_precipitation_kind'')
+        }}'
+        current_temp_value: '{{ local_temp if local_temp is not none else owm_temp }}'
+        temp_source: '{{ ''your local sensor'' if local_temp is not none else ''OpenWeatherMap''
+        }}'
+    - data:
+        title: ☀️ Daily Weather Report
+        message: "Good morning! {% if current_temp_value is not none %}\n  The current
+        temperature is {{ current_temp_value | round(1) }}°C (via {{ temp_source }}).\n{%
+        else %}\n  Outdoor temperature data is currently unavailable.\n{% endif %}
+        {% if owm_feels_like is not none and (local_temp is none or (owm_feels_like
+        | round != current_temp_value | round)) %}\n  It feels like {{ owm_feels_like
+        | round(1) }}°C.\n{% endif %} {% if owm_condition not in ['unknown', 'unavailable']
+        %}\n  Conditions: {{ owm_condition | title }}.\n{% endif %} {% if owm_humidity
+        is not none %}\n  Humidity: {{ owm_humidity }}%.\n{% endif %} {% if owm_wind_speed
+        is not none and owm_wind_speed > 0 %}\n  Wind: {{ owm_wind_speed | round(1)
+        }} {{ state_attr('sensor.openweathermap_wind_speed', 'unit_of_measurement')
+        | default('units') }}\n  {% if owm_wind_bearing is not none %}\n  from {{
+        owm_wind_bearing }}° ({{ (owm_wind_bearing / 22.5 + 0.5) | int % 16 | replace('0',
+        'N') | replace('1', 'NNE') | replace('2', 'NE') | replace('3', 'ENE') | replace('4',
+        'E') | replace('5', 'ESE') | replace('6', 'SE') | replace('7', 'SSE') | replace('8',
+        'S') | replace('9', 'SSW') | replace('10', 'SW') | replace('11', 'WSW') |
+        replace('12', 'W') | replace('13', 'WNW') | replace('14', 'NW') | replace('15',
+        'NNW') }}).\n  {% else %}.\n  {% endif %}\n{% endif %} {% if owm_rain > 0
+        %}\n  Rain expected: {{ owm_rain }} mm.\n{% endif %} {% if owm_snow > 0 %}\n
+        \ Snow expected: {{ owm_snow }} mm.\n{% endif %} {% if owm_uv_index is not
+        none and owm_uv_index >= 0 %} {# UV index can be 0 #}\n  UV Index: {{ owm_uv_index
+        | round(1) }}.\n{% endif %} {% if owm_pressure is not none %}\n  Pressure:
+        {{ owm_pressure | round(1) }} {{ state_attr('sensor.openweathermap_pressure',
+        'unit_of_measurement') | default('hPa') }}.\n{% endif %}"
+        push:
+          sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: daily_weather_report_1678886400
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with comprehensive outdoor
+    conditions.
+  triggers:
+    - at: 07:35:00
+      trigger: time
+  conditions:
+    - condition: template
+      value_template: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+      | is_number }}'
+  actions:
+    - variables:
+        local_temp_raw: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+        }}'
+        local_temp: '{{ local_temp_raw | float(none) }}'
+        owm_condition: '{{ states(''sensor.openweathermap_condition'') }}'
+        owm_temp: '{{ states(''sensor.openweathermap_temperature'') | float(none) }}'
+        owm_feels_like: '{{ states(''sensor.openweathermap_feels_like_temperature'')
+        | float(none) }}'
+        owm_humidity: '{{ states(''sensor.openweathermap_humidity'') | int(none) }}'
+        owm_wind_speed: '{{ states(''sensor.openweathermap_wind_speed'') | float(none)
+        }}'
+        owm_wind_bearing: '{{ states(''sensor.openweathermap_wind_bearing'') | int(none)
+        }}'
+        owm_pressure: '{{ states(''sensor.openweathermap_pressure'') | float(none) }}'
+        owm_rain: '{{ states(''sensor.openweathermap_rain'') | float(0) }}'
+        owm_snow: '{{ states(''sensor.openweathermap_snow'') | float(0) }}'
+        owm_uv_index: '{{ states(''sensor.openweathermap_uv_index'') | float(none) }}'
+        owm_precipitation_kind: '{{ states(''sensor.openweathermap_precipitation_kind'')
+        }}'
+        current_temp_value: '{{ local_temp if local_temp is not none else owm_temp }}'
+        temp_source: '{{ ''your local sensor'' if local_temp is not none else ''OpenWeatherMap''
+        }}'
+    - data:
+        title: ☀️ Daily Weather Report
+        message: "Good morning! {% if current_temp_value is not none %}\n  The current
+        temperature is {{ current_temp_value | round(1) }}°C (via {{ temp_source }}).\n{%
+        else %}\n  Outdoor temperature data is currently unavailable.\n{% endif %}
+        {% if owm_feels_like is not none and (local_temp is none or (owm_feels_like
+        | round != current_temp_value | round)) %}\n  It feels like {{ owm_feels_like
+        | round(1) }}°C.\n{% endif %} {% if owm_condition not in ['unknown', 'unavailable']
+        %}\n  Conditions: {{ owm_condition | title }}.\n{% endif %} {% if owm_humidity
+        is not none %}\n  Humidity: {{ owm_humidity }}%.\n{% endif %} {% if owm_wind_speed
+        is not none and owm_wind_speed > 0 %}\n  Wind: {{ owm_wind_speed | round(1)
+        }} {{ state_attr('sensor.openweathermap_wind_speed', 'unit_of_measurement')
+        | default('units') }}\n  {% if owm_wind_bearing is not none %}\n  from {{
+        owm_wind_bearing }}° ({{ (owm_wind_bearing / 22.5 + 0.5) | int % 16 | replace('0',
+        'N') | replace('1', 'NNE') | replace('2', 'NE') | replace('3', 'ENE') | replace('4',
+        'E') | replace('5', 'ESE') | replace('6', 'SE') | replace('7', 'SSE') | replace('8',
+        'S') | replace('9', 'SSW') | replace('10', 'SW') | replace('11', 'WSW') |
+        replace('12', 'W') | replace('13', 'WNW') | replace('14', 'NW') | replace('15',
+        'NNW') }}).\n  {% else %}.\n  {% endif %}\n{% endif %} {% if owm_rain > 0
+        %}\n  Rain expected: {{ owm_rain }} mm.\n{% endif %} {% if owm_snow > 0 %}\n
+        \ Snow expected: {{ owm_snow }} mm.\n{% endif %} {% if owm_uv_index is not
+        none and owm_uv_index >= 0 %} {# UV index can be 0 #}\n  UV Index: {{ owm_uv_index
+        | round(1) }}.\n{% endif %} {% if owm_pressure is not none %}\n  Pressure:
+        {{ owm_pressure | round(1) }} {{ state_attr('sensor.openweathermap_pressure',
+        'unit_of_measurement') | default('hPa') }}.\n{% endif %}"
+        push:
+          sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: daily_weather_report_1678886400
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with comprehensive outdoor
+    conditions.
+  triggers:
+    - at: 07:35:00
+      trigger: time
+  conditions:
+    - condition: template
+      value_template: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+      | is_number }}'
+  actions:
+    - variables:
+        local_temp_raw: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+        }}'
+        local_temp: '{{ local_temp_raw | float(none) }}'
+        owm_condition: '{{ states(''sensor.openweathermap_condition'') }}'
+        owm_temp: '{{ states(''sensor.openweathermap_temperature'') | float(none) }}'
+        owm_feels_like: '{{ states(''sensor.openweathermap_feels_like_temperature'')
+        | float(none) }}'
+        owm_humidity: '{{ states(''sensor.openweathermap_humidity'') | int(none) }}'
+        owm_wind_speed: '{{ states(''sensor.openweathermap_wind_speed'') | float(none)
+        }}'
+        owm_wind_bearing: '{{ states(''sensor.openweathermap_wind_bearing'') | int(none)
+        }}'
+        owm_pressure: '{{ states(''sensor.openweathermap_pressure'') | float(none) }}'
+        owm_rain: '{{ states(''sensor.openweathermap_rain'') | float(0) }}'
+        owm_snow: '{{ states(''sensor.openweathermap_snow'') | float(0) }}'
+        owm_uv_index: '{{ states(''sensor.openweathermap_uv_index'') | float(none) }}'
+        owm_precipitation_kind: '{{ states(''sensor.openweathermap_precipitation_kind'')
+        }}'
+        current_temp_value: '{{ local_temp if local_temp is not none else owm_temp }}'
+        temp_source: '{{ ''your local sensor'' if local_temp is not none else ''OpenWeatherMap''
+        }}'
+    - data:
+        title: ☀️ Daily Weather Report
+        message: "Good morning! {% if current_temp_value is not none %}\n  The current
+        temperature is {{ current_temp_value | round(1) }}°C (via {{ temp_source }}).\n{%
+        else %}\n  Outdoor temperature data is currently unavailable.\n{% endif %}
+        {% if owm_feels_like is not none and (local_temp is none or (owm_feels_like
+        | round != current_temp_value | round)) %}\n  It feels like {{ owm_feels_like
+        | round(1) }}°C.\n{% endif %} {% if owm_condition not in ['unknown', 'unavailable']
+        %}\n  Conditions: {{ owm_condition | title }}.\n{% endif %} {% if owm_humidity
+        is not none %}\n  Humidity: {{ owm_humidity }}%.\n{% endif %} {% if owm_wind_speed
+        is not none and owm_wind_speed > 0 %}\n  Wind: {{ owm_wind_speed | round(1)
+        }} {{ state_attr('sensor.openweathermap_wind_speed', 'unit_of_measurement')
+        | default('units') }}\n  {% if owm_wind_bearing is not none %}\n  from {{
+        owm_wind_bearing }}° ({{ (owm_wind_bearing / 22.5 + 0.5) | int % 16 | replace('0',
+        'N') | replace('1', 'NNE') | replace('2', 'NE') | replace('3', 'ENE') | replace('4',
+        'E') | replace('5', 'ESE') | replace('6', 'SE') | replace('7', 'SSE') | replace('8',
+        'S') | replace('9', 'SSW') | replace('10', 'SW') | replace('11', 'WSW') |
+        replace('12', 'W') | replace('13', 'WNW') | replace('14', 'NW') | replace('15',
+        'NNW') }}).\n  {% else %}.\n  {% endif %}\n{% endif %} {% if owm_rain > 0
+        %}\n  Rain expected: {{ owm_rain }} mm.\n{% endif %} {% if owm_snow > 0 %}\n
+        \ Snow expected: {{ owm_snow }} mm.\n{% endif %} {% if owm_uv_index is not
+        none and owm_uv_index >= 0 %} {# UV index can be 0 #}\n  UV Index: {{ owm_uv_index
+        | round(1) }}.\n{% endif %} {% if owm_pressure is not none %}\n  Pressure:
+        {{ owm_pressure | round(1) }} {{ state_attr('sensor.openweathermap_pressure',
+        'unit_of_measurement') | default('hPa') }}.\n{% endif %}"
+        push:
+          sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: daily_weather_report_1678886400
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with outdoor temperature
+  triggers:
+    - hours: '7'
+      minutes: '35'
+      trigger: time_pattern
+  conditions:
+    - condition: template
+      value_template: "{{ not is_state('sensor.living_room_station_outdoor_module_temperature',
+      'unavailable') \n   and not is_state('sensor.living_room_station_outdoor_module_temperature',
+      'unknown') }}"
+  actions:
+    - data:
+        title: Today's Weather Report
+        message: Good morning! The current outdoor temperature is  {{ states('sensor.living_room_station_outdoor_module_temperature')
+          | round(1) }}°C.
+        data:
+          push:
+            sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: daily_weather_report_1678886400
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with outdoor temperature
+  triggers:
+    - hours: '7'
+      minutes: '35'
+      trigger: time_pattern
+  conditions:
+    - condition: template
+      value_template: "{{ not is_state('sensor.living_room_station_outdoor_module_temperature',
+      'unavailable') \n   and not is_state('sensor.living_room_station_outdoor_module_temperature',
+      'unknown') }}"
+  actions:
+    - data:
+        title: Today's Weather Report
+        message: Good morning! The current outdoor temperature is  {{ states('sensor.living_room_station_outdoor_module_temperature')
+          | round(1) }}°C.
+        data:
+          push:
+            sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: daily_weather_report_1678886400
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with outdoor temperature
+  triggers:
+    - hours: '7'
+      minutes: '35'
+      trigger: time_pattern
+  conditions:
+    - condition: template
+      value_template: "{{ not is_state('sensor.living_room_station_outdoor_module_temperature',
+      'unavailable') \n   and not is_state('sensor.living_room_station_outdoor_module_temperature',
+      'unknown') }}"
+  actions:
+    - data:
+        title: Today's Weather Report
+        message: Good morning! The current outdoor temperature is  {{ states('sensor.living_room_station_outdoor_module_temperature')
+          | round(1) }}°C.
+        data:
+          push:
+            sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: daily_weather_report_1678886400
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with outdoor temperature
+  triggers:
+    - hours: '7'
+      minutes: '35'
+      trigger: time_pattern
+  conditions:
+    - condition: template
+      value_template: "{{ not is_state('sensor.living_room_station_outdoor_module_temperature',
+      'unavailable') \n   and not is_state('sensor.living_room_station_outdoor_module_temperature',
+      'unknown') }}"
+  actions:
+    - data:
+        title: Today's Weather Report
+        message: Good morning! The current outdoor temperature is  {{ states('sensor.living_room_station_outdoor_module_temperature')
+          | round(1) }}°C.
+        data:
+          push:
+            sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: daily_weather_report_1678886401
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with outdoor temperature
+  triggers:
+    - at: 07:35:00
+      trigger: time
+  conditions:
+    - condition: template
+      value_template: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+      | is_number }}'
+  actions:
+    - variables:
+        local_temp_raw: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+        }}'
+        local_temp: '{{ local_temp_raw | float(none) }}'
+        owm_condition: '{{ states(''sensor.openweathermap_condition'') }}'
+        owm_temp: '{{ states(''sensor.openweathermap_temperature'') | float(none) }}'
+        owm_feels_like: '{{ states(''sensor.openweathermap_feels_like_temperature'')
+        | float(none) }}'
+        owm_humidity: '{{ states(''sensor.openweathermap_humidity'') | int(none) }}'
+        owm_wind_speed: '{{ states(''sensor.openweathermap_wind_speed'') | float(none)
+        }}'
+        owm_wind_bearing: '{{ states(''sensor.openweathermap_wind_bearing'') | int(none)
+        }}'
+        owm_pressure: '{{ states(''sensor.openweathermap_pressure'') | float(none) }}'
+        owm_rain: '{{ states(''sensor.openweathermap_rain'') | float(0) }}'
+        owm_snow: '{{ states(''sensor.openweathermap_snow'') | float(0) }}'
+        owm_uv_index: '{{ states(''sensor.openweathermap_uv_index'') | float(none) }}'
+        owm_precipitation_kind: '{{ states(''sensor.openweathermap_precipitation_kind'')
+        }}'
+        current_temp_value: '{{ local_temp if local_temp is not none else owm_temp }}'
+        temp_source: '{{ ''your local sensor'' if local_temp is not none else ''OpenWeatherMap''
+        }}'
+    - data:
+        title: ☀️ Daily Weather Report
+        message: "Good morning! {% if current_temp_value is not none %}\n  The current
+        temperature is {{ current_temp_value | round(1) }}°C (via {{ temp_source }}).\n{%
+        else %}\n  Outdoor temperature data is currently unavailable.\n{% endif %}
+        {% if owm_feels_like is not none and (local_temp is none or (owm_feels_like
+        | round != current_temp_value | round)) %}\n  It feels like {{ owm_feels_like
+        | round(1) }}°C.\n{% endif %} {% if owm_condition not in ['unknown', 'unavailable']
+        %}\n  Conditions: {{ owm_condition | title }}.\n{% endif %} {% if owm_humidity
+        is not none %}\n  Humidity: {{ owm_humidity }}%.\n{% endif %} {% if owm_wind_speed
+        is not none and owm_wind_speed > 0 %}\n  Wind: {{ owm_wind_speed | round(1)
+        }} {{ state_attr('sensor.openweathermap_wind_speed', 'unit_of_measurement')
+        | default('units') }}\n  {% if owm_wind_bearing is not none %}\n  from {{
+        owm_wind_bearing }}° ({{ (owm_wind_bearing / 22.5 + 0.5) | int % 16 | replace('0',
+        'N') | replace('1', 'NNE') | replace('2', 'NE') | replace('3', 'ENE') | replace('4',
+        'E') | replace('5', 'ESE') | replace('6', 'SE') | replace('7', 'SSE') | replace('8',
+        'S') | replace('9', 'SSW') | replace('10', 'SW') | replace('11', 'WSW') |
+        replace('12', 'W') | replace('13', 'WNW') | replace('14', 'NW') | replace('15',
+        'NNW') }}).\n  {% else %}.\n  {% endif %}\n{% endif %} {% if owm_rain > 0
+        %}\n  Rain expected: {{ owm_rain }} mm.\n{% endif %} {% if owm_snow > 0 %}\n
+        \ Snow expected: {{ owm_snow }} mm.\n{% endif %} {% if owm_uv_index is not
+        none and owm_uv_index >= 0 %} {# UV index can be 0 #}\n  UV Index: {{ owm_uv_index
+        | round(1) }}.\n{% endif %} {% if owm_pressure is not none %}\n  Pressure:
+        {{ owm_pressure | round(1) }} {{ state_attr('sensor.openweathermap_pressure',
+        'unit_of_measurement') | default('hPa') }}.\n{% endif %}"
+        push:
+          sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: daily_weather_report_1678886401
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with outdoor temperature
+  triggers:
+    - hours: '7'
+      minutes: '35'
+      trigger: time_pattern
+  conditions:
+    - condition: template
+      value_template: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+      | is_number }}'
+  actions:
+    - variables:
+        local_temp_raw: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+        }}'
+        local_temp: '{{ local_temp_raw | float(none) }}'
+        owm_condition: '{{ states(''sensor.openweathermap_condition'') }}'
+        owm_temp: '{{ states(''sensor.openweathermap_temperature'') | float(none) }}'
+        owm_feels_like: '{{ states(''sensor.openweathermap_feels_like_temperature'')
+        | float(none) }}'
+        owm_humidity: '{{ states(''sensor.openweathermap_humidity'') | int(none) }}'
+        owm_wind_speed: '{{ states(''sensor.openweathermap_wind_speed'') | float(none)
+        }}'
+        owm_wind_bearing: '{{ states(''sensor.openweathermap_wind_bearing'') | int(none)
+        }}'
+        owm_pressure: '{{ states(''sensor.openweathermap_pressure'') | float(none) }}'
+        owm_rain: '{{ states(''sensor.openweathermap_rain'') | float(0) }}'
+        owm_snow: '{{ states(''sensor.openweathermap_snow'') | float(0) }}'
+        owm_uv_index: '{{ states(''sensor.openweathermap_uv_index'') | float(none) }}'
+        owm_precipitation_kind: '{{ states(''sensor.openweathermap_precipitation_kind'')
+        }}'
+        current_temp_value: '{{ local_temp if local_temp is not none else owm_temp }}'
+        temp_source: '{{ ''your local sensor'' if local_temp is not none else ''OpenWeatherMap''
+        }}'
+    - data:
+        title: ☀️ Daily Weather Report
+        message: "Good morning! {% if current_temp_value is not none %}\n  The current
+        temperature is {{ current_temp_value | round(1) }}°C (via {{ temp_source }}).\n{%
+        else %}\n  Outdoor temperature data is currently unavailable.\n{% endif %}
+        {% if owm_feels_like is not none and (local_temp is none or (owm_feels_like
+        | round != current_temp_value | round)) %}\n  It feels like {{ owm_feels_like
+        | round(1) }}°C.\n{% endif %} {% if owm_condition not in ['unknown', 'unavailable']
+        %}\n  Conditions: {{ owm_condition | title }}.\n{% endif %} {% if owm_humidity
+        is not none %}\n  Humidity: {{ owm_humidity }}%.\n{% endif %} {% if owm_wind_speed
+        is not none and owm_wind_speed > 0 %}\n  Wind: {{ owm_wind_speed | round(1)
+        }} {{ state_attr('sensor.openweathermap_wind_speed', 'unit_of_measurement')
+        | default('units') }}\n  {% if owm_wind_bearing is not none %}\n  from {{
+        owm_wind_bearing }}° ({{ (owm_wind_bearing / 22.5 + 0.5) | int % 16 | replace('0',
+        'N') | replace('1', 'NNE') | replace('2', 'NE') | replace('3', 'ENE') | replace('4',
+        'E') | replace('5', 'ESE') | replace('6', 'SE') | replace('7', 'SSE') | replace('8',
+        'S') | replace('9', 'SSW') | replace('10', 'SW') | replace('11', 'WSW') |
+        replace('12', 'W') | replace('13', 'WNW') | replace('14', 'NW') | replace('15',
+        'NNW') }}).\n  {% else %}.\n  {% endif %}\n{% endif %} {% if owm_rain > 0
+        %}\n  Rain expected: {{ owm_rain }} mm.\n{% endif %} {% if owm_snow > 0 %}\n
+        \ Snow expected: {{ owm_snow }} mm.\n{% endif %} {% if owm_uv_index is not
+        none and owm_uv_index >= 0 %} {# UV index can be 0 #}\n  UV Index: {{ owm_uv_index
+        | round(1) }}.\n{% endif %} {% if owm_pressure is not none %}\n  Pressure:
+        {{ owm_pressure | round(1) }} {{ state_attr('sensor.openweathermap_pressure',
+        'unit_of_measurement') | default('hPa') }}.\n{% endif %}"
+        push:
+          sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: daily_weather_report_1678886401
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with outdoor temperature
+  triggers:
+    - at: 07:35:00
+      trigger: time
+  conditions:
+    - condition: template
+      value_template: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+      | is_number }}'
+  actions:
+    - variables:
+        local_temp_raw: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+        }}'
+        local_temp: '{{ local_temp_raw | float(none) }}'
+        owm_condition: '{{ states(''sensor.openweathermap_condition'') }}'
+        owm_temp: '{{ states(''sensor.openweathermap_temperature'') | float(none) }}'
+        owm_feels_like: '{{ states(''sensor.openweathermap_feels_like_temperature'')
+        | float(none) }}'
+        owm_humidity: '{{ states(''sensor.openweathermap_humidity'') | int(none) }}'
+        owm_wind_speed: '{{ states(''sensor.openweathermap_wind_speed'') | float(none)
+        }}'
+        owm_wind_bearing: '{{ states(''sensor.openweathermap_wind_bearing'') | int(none)
+        }}'
+        owm_pressure: '{{ states(''sensor.openweathermap_pressure'') | float(none) }}'
+        owm_rain: '{{ states(''sensor.openweathermap_rain'') | float(0) }}'
+        owm_snow: '{{ states(''sensor.openweathermap_snow'') | float(0) }}'
+        owm_uv_index: '{{ states(''sensor.openweathermap_uv_index'') | float(none) }}'
+        owm_precipitation_kind: '{{ states(''sensor.openweathermap_precipitation_kind'')
+        }}'
+        current_temp_value: '{{ local_temp if local_temp is not none else owm_temp }}'
+        temp_source: '{{ ''your local sensor'' if local_temp is not none else ''OpenWeatherMap''
+        }}'
+    - data:
+        title: ☀️ Daily Weather Report
+        message: "Good morning! {% if current_temp_value is not none %}\n  The current
+        temperature is {{ current_temp_value | round(1) }}°C (via {{ temp_source }}).\n{%
+        else %}\n  Outdoor temperature data is currently unavailable.\n{% endif %}
+        {% if owm_feels_like is not none and (local_temp is none or (owm_feels_like
+        | round != current_temp_value | round)) %}\n  It feels like {{ owm_feels_like
+        | round(1) }}°C.\n{% endif %} {% if owm_condition not in ['unknown', 'unavailable']
+        %}\n  Conditions: {{ owm_condition | title }}.\n{% endif %} {% if owm_humidity
+        is not none %}\n  Humidity: {{ owm_humidity }}%.\n{% endif %} {% if owm_wind_speed
+        is not none and owm_wind_speed > 0 %}\n  Wind: {{ owm_wind_speed | round(1)
+        }} {{ state_attr('sensor.openweathermap_wind_speed', 'unit_of_measurement')
+        | default('units') }}\n  {% if owm_wind_bearing is not none %}\n  from {{
+        owm_wind_bearing }}° ({{ (owm_wind_bearing / 22.5 + 0.5) | int % 16 | replace('0',
+        'N') | replace('1', 'NNE') | replace('2', 'NE') | replace('3', 'ENE') | replace('4',
+        'E') | replace('5', 'ESE') | replace('6', 'SE') | replace('7', 'SSE') | replace('8',
+        'S') | replace('9', 'SSW') | replace('10', 'SW') | replace('11', 'WSW') |
+        replace('12', 'W') | replace('13', 'WNW') | replace('14', 'NW') | replace('15',
+        'NNW') }}).\n  {% else %}.\n  {% endif %}\n{% endif %} {% if owm_rain > 0
+        %}\n  Rain expected: {{ owm_rain }} mm.\n{% endif %} {% if owm_snow > 0 %}\n
+        \ Snow expected: {{ owm_snow }} mm.\n{% endif %} {% if owm_uv_index is not
+        none and owm_uv_index >= 0 %} {# UV index can be 0 #}\n  UV Index: {{ owm_uv_index
+        | round(1) }}.\n{% endif %} {% if owm_pressure is not none %}\n  Pressure:
+        {{ owm_pressure | round(1) }} {{ state_attr('sensor.openweathermap_pressure',
+        'unit_of_measurement') | default('hPa') }}.\n{% endif %}"
+        push:
+          sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: daily_weather_report_1678886401
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with outdoor temperature
+  triggers:
+    - at: 07:35:00
+      trigger: time
+  conditions:
+    - condition: template
+      value_template: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+      | is_number }}'
+  actions:
+    - variables:
+        local_temp_raw: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+        }}'
+        local_temp: '{{ local_temp_raw | float(none) }}'
+        owm_condition: '{{ states(''sensor.openweathermap_condition'') }}'
+        owm_temp: '{{ states(''sensor.openweathermap_temperature'') | float(none) }}'
+        owm_feels_like: '{{ states(''sensor.openweathermap_feels_like_temperature'')
+        | float(none) }}'
+        owm_humidity: '{{ states(''sensor.openweathermap_humidity'') | int(none) }}'
+        owm_wind_speed: '{{ states(''sensor.openweathermap_wind_speed'') | float(none)
+        }}'
+        owm_wind_bearing: '{{ states(''sensor.openweathermap_wind_bearing'') | int(none)
+        }}'
+        owm_pressure: '{{ states(''sensor.openweathermap_pressure'') | float(none) }}'
+        owm_rain: '{{ states(''sensor.openweathermap_rain'') | float(0) }}'
+        owm_snow: '{{ states(''sensor.openweathermap_snow'') | float(0) }}'
+        owm_uv_index: '{{ states(''sensor.openweathermap_uv_index'') | float(none) }}'
+        owm_precipitation_kind: '{{ states(''sensor.openweathermap_precipitation_kind'')
+        }}'
+        current_temp_value: '{{ local_temp if local_temp is not none else owm_temp }}'
+        temp_source: '{{ ''your local sensor'' if local_temp is not none else ''OpenWeatherMap''
+        }}'
+    - data:
+        title: ☀️ Daily Weather Report
+        message: "Good morning! {% if current_temp_value is not none %}\n  The current
+        temperature is {{ current_temp_value | round(1) }}°C (via {{ temp_source }}).\n{%
+        else %}\n  Outdoor temperature data is currently unavailable.\n{% endif %}
+        {% if owm_feels_like is not none and (local_temp is none or (owm_feels_like
+        | round != current_temp_value | round)) %}\n  It feels like {{ owm_feels_like
+        | round(1) }}°C.\n{% endif %} {% if owm_condition not in ['unknown', 'unavailable']
+        %}\n  Conditions: {{ owm_condition | title }}.\n{% endif %} {% if owm_humidity
+        is not none %}\n  Humidity: {{ owm_humidity }}%.\n{% endif %} {% if owm_wind_speed
+        is not none and owm_wind_speed > 0 %}\n  Wind: {{ owm_wind_speed | round(1)
+        }} {{ state_attr('sensor.openweathermap_wind_speed', 'unit_of_measurement')
+        | default('units') }}\n  {% if owm_wind_bearing is not none %}\n  from {{
+        owm_wind_bearing }}° ({{ (owm_wind_bearing / 22.5 + 0.5) | int % 16 | replace('0',
+        'N') | replace('1', 'NNE') | replace('2', 'NE') | replace('3', 'ENE') | replace('4',
+        'E') | replace('5', 'ESE') | replace('6', 'SE') | replace('7', 'SSE') | replace('8',
+        'S') | replace('9', 'SSW') | replace('10', 'SW') | replace('11', 'WSW') |
+        replace('12', 'W') | replace('13', 'WNW') | replace('14', 'NW') | replace('15',
+        'NNW') }}).\n  {% else %}.\n  {% endif %}\n{% endif %} {% if owm_rain > 0
+        %}\n  Rain expected: {{ owm_rain }} mm.\n{% endif %} {% if owm_snow > 0 %}\n
+        \ Snow expected: {{ owm_snow }} mm.\n{% endif %} {% if owm_uv_index is not
+        none and owm_uv_index >= 0 %} {# UV index can be 0 #}\n  UV Index: {{ owm_uv_index
+        | round(1) }}.\n{% endif %} {% if owm_pressure is not none %}\n  Pressure:
+        {{ owm_pressure | round(1) }} {{ state_attr('sensor.openweathermap_pressure',
+        'unit_of_measurement') | default('hPa') }}.\n{% endif %}"
+        push:
+          sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: daily_weather_report_1678886401
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with outdoor temperature
+  triggers:
+    - hours: '7'
+      minutes: '35'
+      trigger: time_pattern
+  conditions:
+    - condition: template
+      value_template: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+      | is_number }}'
+  actions:
+    - variables:
+        local_temp_raw: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+        }}'
+        local_temp: '{{ local_temp_raw | float(none) }}'
+        owm_condition: '{{ states(''sensor.openweathermap_condition'') }}'
+        owm_temp: '{{ states(''sensor.openweathermap_temperature'') | float(none) }}'
+        owm_feels_like: '{{ states(''sensor.openweathermap_feels_like_temperature'')
+        | float(none) }}'
+        owm_humidity: '{{ states(''sensor.openweathermap_humidity'') | int(none) }}'
+        owm_wind_speed: '{{ states(''sensor.openweathermap_wind_speed'') | float(none)
+        }}'
+        owm_wind_bearing: '{{ states(''sensor.openweathermap_wind_bearing'') | int(none)
+        }}'
+        owm_pressure: '{{ states(''sensor.openweathermap_pressure'') | float(none) }}'
+        owm_rain: '{{ states(''sensor.openweathermap_rain'') | float(0) }}'
+        owm_snow: '{{ states(''sensor.openweathermap_snow'') | float(0) }}'
+        owm_uv_index: '{{ states(''sensor.openweathermap_uv_index'') | float(none) }}'
+        owm_precipitation_kind: '{{ states(''sensor.openweathermap_precipitation_kind'')
+        }}'
+        current_temp_value: '{{ local_temp if local_temp is not none else owm_temp }}'
+        temp_source: '{{ ''your local sensor'' if local_temp is not none else ''OpenWeatherMap''
+        }}'
+    - data:
+        title: ☀️ Daily Weather Report
+        message: "Good morning! {% if current_temp_value is not none %}\n  The current
+        temperature is {{ current_temp_value | round(1) }}°C (via {{ temp_source }}).\n{%
+        else %}\n  Outdoor temperature data is currently unavailable.\n{% endif %}
+        {% if owm_feels_like is not none and (local_temp is none or (owm_feels_like
+        | round != current_temp_value | round)) %}\n  It feels like {{ owm_feels_like
+        | round(1) }}°C.\n{% endif %} {% if owm_condition not in ['unknown', 'unavailable']
+        %}\n  Conditions: {{ owm_condition | title }}.\n{% endif %} {% if owm_humidity
+        is not none %}\n  Humidity: {{ owm_humidity }}%.\n{% endif %} {% if owm_wind_speed
+        is not none and owm_wind_speed > 0 %}\n  Wind: {{ owm_wind_speed | round(1)
+        }} {{ state_attr('sensor.openweathermap_wind_speed', 'unit_of_measurement')
+        | default('units') }}\n  {% if owm_wind_bearing is not none %}\n  from {{
+        owm_wind_bearing }}° ({{ (owm_wind_bearing / 22.5 + 0.5) | int % 16 | replace('0',
+        'N') | replace('1', 'NNE') | replace('2', 'NE') | replace('3', 'ENE') | replace('4',
+        'E') | replace('5', 'ESE') | replace('6', 'SE') | replace('7', 'SSE') | replace('8',
+        'S') | replace('9', 'SSW') | replace('10', 'SW') | replace('11', 'WSW') |
+        replace('12', 'W') | replace('13', 'WNW') | replace('14', 'NW') | replace('15',
+        'NNW') }}).\n  {% else %}.\n  {% endif %}\n{% endif %} {% if owm_rain > 0
+        %}\n  Rain expected: {{ owm_rain }} mm.\n{% endif %} {% if owm_snow > 0 %}\n
+        \ Snow expected: {{ owm_snow }} mm.\n{% endif %} {% if owm_uv_index is not
+        none and owm_uv_index >= 0 %} {# UV index can be 0 #}\n  UV Index: {{ owm_uv_index
+        | round(1) }}.\n{% endif %} {% if owm_pressure is not none %}\n  Pressure:
+        {{ owm_pressure | round(1) }} {{ state_attr('sensor.openweathermap_pressure',
+        'unit_of_measurement') | default('hPa') }}.\n{% endif %}"
+        push:
+          sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: daily_weather_report_1678886401
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with outdoor temperature
+  triggers:
+    - hours: '7'
+      minutes: '35'
+      trigger: time_pattern
+  conditions:
+    - condition: template
+      value_template: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+      | is_number }}'
+  actions:
+    - variables:
+        local_temp_raw: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+        }}'
+        local_temp: '{{ local_temp_raw | float(none) }}'
+        owm_condition: '{{ states(''sensor.openweathermap_condition'') }}'
+        owm_temp: '{{ states(''sensor.openweathermap_temperature'') | float(none) }}'
+        owm_feels_like: '{{ states(''sensor.openweathermap_feels_like_temperature'')
+        | float(none) }}'
+        owm_humidity: '{{ states(''sensor.openweathermap_humidity'') | int(none) }}'
+        owm_wind_speed: '{{ states(''sensor.openweathermap_wind_speed'') | float(none)
+        }}'
+        owm_wind_bearing: '{{ states(''sensor.openweathermap_wind_bearing'') | int(none)
+        }}'
+        owm_pressure: '{{ states(''sensor.openweathermap_pressure'') | float(none) }}'
+        owm_rain: '{{ states(''sensor.openweathermap_rain'') | float(0) }}'
+        owm_snow: '{{ states(''sensor.openweathermap_snow'') | float(0) }}'
+        owm_uv_index: '{{ states(''sensor.openweathermap_uv_index'') | float(none) }}'
+        owm_precipitation_kind: '{{ states(''sensor.openweathermap_precipitation_kind'')
+        }}'
+        current_temp_value: '{{ local_temp if local_temp is not none else owm_temp }}'
+        temp_source: '{{ ''your local sensor'' if local_temp is not none else ''OpenWeatherMap''
+        }}'
+    - data:
+        title: ☀️ Daily Weather Report
+        message: "Good morning! {% if current_temp_value is not none %}\n  The current
+        temperature is {{ current_temp_value | round(1) }}°C (via {{ temp_source }}).\n{%
+        else %}\n  Outdoor temperature data is currently unavailable.\n{% endif %}
+        {% if owm_feels_like is not none and (local_temp is none or (owm_feels_like
+        | round != current_temp_value | round)) %}\n  It feels like {{ owm_feels_like
+        | round(1) }}°C.\n{% endif %} {% if owm_condition not in ['unknown', 'unavailable']
+        %}\n  Conditions: {{ owm_condition | title }}.\n{% endif %} {% if owm_humidity
+        is not none %}\n  Humidity: {{ owm_humidity }}%.\n{% endif %} {% if owm_wind_speed
+        is not none and owm_wind_speed > 0 %}\n  Wind: {{ owm_wind_speed | round(1)
+        }} {{ state_attr('sensor.openweathermap_wind_speed', 'unit_of_measurement')
+        | default('units') }}\n  {% if owm_wind_bearing is not none %}\n  from {{
+        owm_wind_bearing }}° ({{ (owm_wind_bearing / 22.5 + 0.5) | int % 16 | replace('0',
+        'N') | replace('1', 'NNE') | replace('2', 'NE') | replace('3', 'ENE') | replace('4',
+        'E') | replace('5', 'ESE') | replace('6', 'SE') | replace('7', 'SSE') | replace('8',
+        'S') | replace('9', 'SSW') | replace('10', 'SW') | replace('11', 'WSW') |
+        replace('12', 'W') | replace('13', 'WNW') | replace('14', 'NW') | replace('15',
+        'NNW') }}).\n  {% else %}.\n  {% endif %}\n{% endif %} {% if owm_rain > 0
+        %}\n  Rain expected: {{ owm_rain }} mm.\n{% endif %} {% if owm_snow > 0 %}\n
+        \ Snow expected: {{ owm_snow }} mm.\n{% endif %} {% if owm_uv_index is not
+        none and owm_uv_index >= 0 %} {# UV index can be 0 #}\n  UV Index: {{ owm_uv_index
+        | round(1) }}.\n{% endif %} {% if owm_pressure is not none %}\n  Pressure:
+        {{ owm_pressure | round(1) }} {{ state_attr('sensor.openweathermap_pressure',
+        'unit_of_measurement') | default('hPa') }}.\n{% endif %}"
+        push:
+          sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: '1747908689097'
+  alias: Daily Weather Report
+  description: Sends a daily weather report notification with outdoor temperature
+  triggers:
+    - hours: '7'
+      minutes: '35'
+      trigger: time_pattern
+  conditions:
+    - condition: template
+      value_template: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+      | is_number }}'
+  actions:
+    - variables:
+        local_temp_raw: '{{ states(''sensor.living_room_station_outdoor_module_temperature'')
+        }}'
+        local_temp: '{{ local_temp_raw | float(none) }}'
+        owm_condition: '{{ states(''sensor.openweathermap_condition'') }}'
+        owm_temp: '{{ states(''sensor.openweathermap_temperature'') | float(none) }}'
+        owm_feels_like: '{{ states(''sensor.openweathermap_feels_like_temperature'')
+        | float(none) }}'
+        owm_humidity: '{{ states(''sensor.openweathermap_humidity'') | int(none) }}'
+        owm_wind_speed: '{{ states(''sensor.openweathermap_wind_speed'') | float(none)
+        }}'
+        owm_wind_bearing: '{{ states(''sensor.openweathermap_wind_bearing'') | int(none)
+        }}'
+        owm_pressure: '{{ states(''sensor.openweathermap_pressure'') | float(none) }}'
+        owm_rain: '{{ states(''sensor.openweathermap_rain'') | float(0) }}'
+        owm_snow: '{{ states(''sensor.openweathermap_snow'') | float(0) }}'
+        owm_uv_index: '{{ states(''sensor.openweathermap_uv_index'') | float(none) }}'
+        owm_precipitation_kind: '{{ states(''sensor.openweathermap_precipitation_kind'')
+        }}'
+        current_temp_value: '{{ local_temp if local_temp is not none else owm_temp }}'
+        temp_source: '{{ ''your local sensor'' if local_temp is not none else ''OpenWeatherMap''
+        }}'
+    - data:
+        title: ☀️ Daily Weather Report
+        message: "{% set wind_cardinals = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE',
+        'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'] -%} Good morning!
+        {%- if current_temp_value is not none -%} Temp: {{ current_temp_value | round(1)
+        }}°C (via {{ temp_source }}){%- if owm_feels_like is not none and (local_temp
+        is none or (owm_feels_like | round != current_temp_value | round)) -%}, feels
+        like {{ owm_feels_like | round(1) }}°C{%- endif -%}. {%- else -%} Outdoor
+        temperature data is currently unavailable. {%- endif -%} {%- if owm_condition
+        not in ['unknown', 'unavailable'] or owm_humidity is not none -%}\n  {%- if
+        owm_condition not in ['unknown', 'unavailable'] -%}Conditions: {{ owm_condition
+        | title }}.{%- endif -%}\n  {%- if owm_condition not in ['unknown', 'unavailable']
+        and owm_humidity is not none -%}, {% endif -%} {# Add comma and space if both
+        exist #}\n  {%- if owm_humidity is not none -%}Humidity: {{ owm_humidity }}%.{%-
+        endif -%}\n{%- endif -%} {%- if owm_wind_speed is not none and owm_wind_speed
+        > 0 -%} Wind: {{ owm_wind_speed | round(1) }} {{ state_attr('sensor.openweathermap_wind_speed',
+        'unit_of_measurement') | default('units') }} {%- if owm_wind_bearing is not
+        none -%} {%- set wind_index = ((owm_wind_bearing / 22.5 + 0.5) | int % 16)
+        -%} from {{ owm_wind_bearing }}° ({{ wind_cardinals[wind_index] }}). {%- else
+        -%}. {%- endif -%} {%- endif -%} {%- if owm_rain > 0 or owm_snow > 0 -%}\n
+        \ {%- if owm_rain > 0 -%}Rain: {{ owm_rain }} mm.{%- endif -%}\n  {%- if owm_rain
+        > 0 and owm_snow > 0 -%}, {% endif -%} {# Add comma and space if both exist
+        #}\n  {%- if owm_snow > 0 -%}Snow: {{ owm_snow }} mm.{%- endif -%}\n{%- endif
+        -%} {%- if (owm_uv_index is not none and owm_uv_index >= 0) or owm_pressure
+        is not none -%}\n  {%- if owm_uv_index is not none and owm_uv_index >= 0 -%}UV
+        Index: {{ owm_uv_index | round(1) }}.{%- endif -%}\n  {%- if (owm_uv_index
+        is not none and owm_uv_index >= 0) and owm_pressure is not none -%}, {% endif
+        -%} {# Add comma and space if both exist #}\n  {%- if owm_pressure is not
+        none -%}Pressure: {{ owm_pressure | round(1) }} {{ state_attr('sensor.openweathermap_pressure',
+        'unit_of_measurement') | default('hPa') }}.{%- endif -%}\n{%- endif -%}"
+        data:
+          push:
+            sound: default
+      action: notify.mobile_app_iphone_12_pro
+  mode: single
+- id: notify_first_solar_export_daily
+  alias: Notify on First Solar Export of the Day
+  description: Sends a notification when solar export exceeds 50W for the first time
+    today.
+  triggers:
+    - entity_id: sensor.shellypro3em_08f9e0e88160_total_active_power
+      below: -50
+      trigger: numeric_state
+  conditions:
+    - condition: state
+      entity_id: input_boolean.solar_export_notified_today
+      state: 'off'
+  actions:
+    - data:
+        title: ☀️ Solar Export Detected
+        message: Currently exporting {{ trigger.to_state.state | float | round(1) }}
+          W to the grid. This is the first export notification for today.
+      action: notify.notify
+    - target:
+        entity_id: input_boolean.solar_export_notified_today
+      action: input_boolean.turn_on
+  mode: single
+- id: notify_first_solar_export_daily
+  alias: Notify on First Solar Export of the Day
+  description: Sends a notification when solar export exceeds 50W for the first time
+    today.
+  triggers:
+    - entity_id: sensor.shellypro3em_08f9e0e88160_total_active_power
+      below: -50
+      trigger: numeric_state
+  conditions:
+    - condition: state
+      entity_id: input_boolean.solar_export_notified_today
+      state: 'off'
+  actions:
+    - data:
+        title: ☀️ Solar Export Detected
+        message: Currently exporting {{ trigger.to_state.state | float | round(1) }}
+          W to the grid. This is the first export notification for today.
+      action: notify.notify
+    - target:
+        entity_id: input_boolean.solar_export_notified_today
+      action: input_boolean.turn_on
+  mode: single
+- id: notify_first_solar_export_daily
+  alias: Notify on First Solar Export of the Day
+  description: Sends a notification when solar export exceeds 50W for the first time
+    today.
+  triggers:
+    - entity_id: sensor.shellypro3em_08f9e0e88160_total_active_power
+      below: -50
+      trigger: numeric_state
+  conditions:
+    - condition: state
+      entity_id: input_boolean.solar_export_notified_today
+      state: 'off'
+  actions:
+    - data:
+        title: ☀️ Solar Export Detected
+        message: Currently exporting {{ trigger.to_state.state | float | round(1) }}
+          W to the grid. This is the first export notification for today.
+      action: notify.notify
+    - target:
+        entity_id: input_boolean.solar_export_notified_today
+      action: input_boolean.turn_on
+  mode: single
+- id: notify_first_solar_export_daily
+  alias: Notify on First Solar Export of the Day
+  description: Sends a notification when solar export exceeds 50W for the first time
+    today.
+  triggers:
+    - entity_id: sensor.shellypro3em_08f9e0e88160_total_active_power
+      below: -50
+      trigger: numeric_state
+  conditions:
+    - condition: state
+      entity_id: input_boolean.solar_export_notified_today
+      state: 'off'
+  actions:
+    - data:
+        title: ☀️ Solar Export Detected
+        message: Currently exporting {{ trigger.to_state.state | float | round(1) }}
+          W to the grid. This is the first export notification for today.
+      action: notify.notify
+    - target:
+        entity_id: input_boolean.solar_export_notified_today
+      action: input_boolean.turn_on
+  mode: single
+- id: notify_first_solar_export_daily
+  alias: Notify on First Solar Export of the Day
+  description: Sends a notification when solar export exceeds 50W for the first time
+    today.
+  triggers:
+    - entity_id: sensor.shellypro3em_08f9e0e88160_total_active_power
+      below: -50
+      trigger: numeric_state
+  conditions:
+    - condition: state
+      entity_id: input_boolean.solar_export_notified_today
+      state: 'off'
+  actions:
+    - data:
+        title: ☀️ Solar Export Detected
+        message: Currently exporting {{ trigger.to_state.state | float | round(1) }}
+          W to the grid. This is the first export notification for today.
+      action: notify.notify
+    - target:
+        entity_id: input_boolean.solar_export_notified_today
+      action: input_boolean.turn_on
+  mode: single
+- id: notify_first_solar_export_daily
+  alias: Notify on First Solar Export of the Day
+  description: Sends a notification when solar export exceeds 50W for the first time
+    today.
+  triggers:
+    - entity_id: sensor.shellypro3em_08f9e0e88160_total_active_power
+      below: -50
+      trigger: numeric_state
+  conditions:
+    - condition: state
+      entity_id: input_boolean.solar_export_notified_today
+      state: 'off'
+  actions:
+    - data:
+        title: ☀️ Solar Export Detected
+        message: Currently exporting {{ trigger.to_state.state | float | round(1) }}
+          W to the grid. This is the first export notification for today.
+      action: notify.notify
+    - target:
+        entity_id: input_boolean.solar_export_notified_today
+      action: input_boolean.turn_on
+  mode: single
+- id: notify_first_solar_export_daily
+  alias: Notify on First Solar Export of the Day
+  description: Sends a notification when solar export exceeds 50W for the first time
+    today.
+  triggers:
+    - entity_id: sensor.shellypro3em_08f9e0e88160_total_active_power
+      below: -50
+      trigger: numeric_state
+  conditions:
+    - condition: state
+      entity_id: input_boolean.solar_export_notified_today
+      state: 'off'
+  actions:
+    - data:
+        title: ☀️ Solar Export Detected
+        message: Currently exporting {{ trigger.to_state.state | float | round(1) }}
+          W to the grid. This is the first export notification for today.
+      action: notify.notify
+    - target:
+        entity_id: input_boolean.solar_export_notified_today
+      action: input_boolean.turn_on
+  mode: single
+- id: notify_first_solar_export_daily
+  alias: Notify on First Solar Export of the Day
+  description: Sends a notification when solar export exceeds 50W for the first time
+    today.
+  triggers:
+    - entity_id: sensor.shellypro3em_08f9e0e88160_total_active_power
+      below: -50
+      trigger: numeric_state
+  conditions:
+    - condition: state
+      entity_id: input_boolean.solar_export_notified_today
+      state: 'off'
+  actions:
+    - data:
+        title: ☀️ Solar Export Detected
+        message: Currently exporting {{ trigger.to_state.state | float | round(1) }}
+          W to the grid. This is the first export notification for today.
+      action: notify.notify
+    - target:
+        entity_id: input_boolean.solar_export_notified_today
+      action: input_boolean.turn_on
+  mode: single
+- id: notify_first_solar_export_daily
+  alias: Notify on First Solar Export of the Day
+  description: Sends a notification when solar export exceeds 50W for the first time
+    today.
+  triggers:
+    - entity_id: sensor.shellypro3em_08f9e0e88160_total_active_power
+      below: -50
+      trigger: numeric_state
+  conditions:
+    - condition: state
+      entity_id: input_boolean.solar_export_notified_today
+      state: 'off'
+  actions:
+    - data:
+        title: ☀️ Solar Export Detected
+        message: Currently exporting {{ trigger.to_state.state | float | round(1) }}
+          W to the grid. This is the first export notification for today.
+      action: notify.notify
+    - target:
+        entity_id: input_boolean.solar_export_notified_today
+      action: input_boolean.turn_on
+  mode: single
+- id: notify_first_solar_export_daily
+  alias: Notify on First Solar Export of the Day
+  description: Sends a notification when solar export exceeds 50W for the first time
+    today.
+  triggers:
+    - entity_id: sensor.shellypro3em_08f9e0e88160_total_active_power
+      below: -50
+      trigger: numeric_state
+  conditions:
+    - condition: state
+      entity_id: input_boolean.solar_export_notified_today
+      state: 'off'
+  actions:
+    - data:
+        title: ☀️ Solar Export Detected
+        message: Currently exporting {{ trigger.to_state.state | float | round(1) }}
+          W to the grid. This is the first export notification for today.
+      action: notify.notify
+    - target:
+        entity_id: input_boolean.solar_export_notified_today
+      action: input_boolean.turn_on
+  mode: single
+- id: '1747938713560'
+  alias: Monthly Energy Report
+  description: Sends a monthly energy report notification at 10:59 PM on the last
+    day of the month
+  triggers:
+    - at: '22:59:00'
+      trigger: time
+  conditions:
+    - condition: template
+      value_template: '{{ (now() + timedelta(days=1)).month != now().month }}'
+  actions:
+    - data:
+        title: "\U0001F4CA Monthly Energy Report"
+        message: "{% set solar_production = states('sensor.monthly_solar_production')
+        | float(0) %} {% set grid_import = states('sensor.monthly_grid_import') |
+        float(0) %} {% set grid_export = states('sensor.monthly_grid_export') | float(0)
+        %} {% set self_consumed_solar = states('sensor.monthly_self_consumed_solar_energy')
+        | float(0) %}\n{% set electricity_price = 0.3370 %} {# Consider making this
+        an input_number helper for easier updates #}\n{% set total_home_usage = (self_consumed_solar
+        + grid_import) | float(0) %} {% set amount_saved = (self_consumed_solar *
+        electricity_price) | float(0) %}\n{% if states('sensor.monthly_solar_production')
+        != 'unknown' and\n      states('sensor.monthly_grid_import') != 'unknown'
+        and\n      states('sensor.monthly_grid_export') != 'unknown' and\n      states('sensor.monthly_self_consumed_solar_energy')
+        != 'unknown' and\n      is_number(states('sensor.monthly_solar_production'))
+        and\n      is_number(states('sensor.monthly_grid_import')) and\n      is_number(states('sensor.monthly_grid_export'))
+        and\n      is_number(states('sensor.monthly_self_consumed_solar_energy'))
+        %}\n\n  {% set self_consumption_rate = (self_consumed_solar / solar_production
+        * 100) if solar_production > 0 else 0 %}\n  {% set self_sufficiency_rate =
+        (self_consumed_solar / total_home_usage * 100) if total_home_usage > 0 else
+        0 %}\n\n  Solar Production: {{ '%.1f' | format(solar_production) }} kWh\n
+        \ Self-Consumed Solar: {{ '%.1f' | format(self_consumed_solar) }} kWh\n  Amount
+        Saved: €{{ '%.2f' | format(amount_saved) }}\n  Grid Import: {{ '%.1f' | format(grid_import)
+        }} kWh\n  Grid Export: {{ '%.1f' | format(grid_export) }} kWh\n  Total Home
+        Usage: {{ '%.1f' | format(total_home_usage) }} kWh\n  Solar Self-Consumption
+        Rate: {{ '%.1f' | format(self_consumption_rate) }}%\n  Energy Self-Sufficiency
+        Rate: {{ '%.1f' | format(self_sufficiency_rate) }}%\n\n{% else %}\n  ⚠️ Some
+        energy sensors are unavailable for the monthly report. Please check your configuration.\n\n
+        \ Available Data:\n  {% if states('sensor.monthly_solar_production') != 'unknown'
+        and is_number(states('sensor.monthly_solar_production')) %}\n  ☀️ Solar Production:
+        {{ '%.1f' | format(solar_production) }} kWh\n  {% endif %}\n  {% if states('sensor.monthly_grid_import')
+        != 'unknown' and is_number(states('sensor.monthly_grid_import')) %}\n  \U0001F3E0
+        Grid Import: {{ '%.1f' | format(grid_import) }} kWh\n  {% endif %}\n  {% if
+        states('sensor.monthly_grid_export') != 'unknown' and is_number(states('sensor.monthly_grid_export'))
+        %}\n  \U0001F4E4 Grid Export: {{ '%.1f' | format(grid_export) }} kWh\n  {%
+        endif %}\n  {% if states('sensor.monthly_self_consumed_solar_energy') != 'unknown'
+        and is_number(states('sensor.monthly_self_consumed_solar_energy')) %}\n  ⚡
+        Self-Consumed Solar: {{ '%.1f' | format(self_consumed_solar) }} kWh\n  \U0001F4B0
+        Amount Saved: €{{ '%.2f' | format(amount_saved) }}\n  {% endif %}\n{% endif
+        %}"
+      action: notify.notify
+    - data:
+        name: Monthly Energy Report
+        message: Monthly energy report notification sent
+      action: logbook.log
+  mode: single
+- id: '1748037585371'
+  alias: Low Battery and Maintenance Alert
+  description: Notify when battery levels are low or other devices need maintenance.
+  triggers:
+    - entity_id:
+        - sensor.iphone_12_pro_battery_level
+        - sensor.stades_ipad_battery_level
+        - sensor.living_room_station_outdoor_module_battery
+        - sensor.living_room_station_office_battery
+        - sensor.living_room_station_hans_battery
+        - sensor.living_room_station_bedroom_battery
+        - sensor.living_room_station_rain_gauge_battery
+        - sensor.living_room_station_smart_anemometer_battery
+      below: '20'
+      for:
+        minutes: 5
+      trigger: numeric_state
+    - entity_id:
+        - sensor.mfc_l2710dw_black_toner_remaining
+        - sensor.mfc_l2710dw_drum_remaining_lifetime
+      below: '10'
+      for:
+        minutes: 5
+      trigger: numeric_state
+    - entity_id:
+        - binary_sensor.diskstation_security_status
+        - binary_sensor.diskstation_drive_1_exceeded_max_bad_sectors
+        - binary_sensor.diskstation_drive_1_below_min_remaining_life
+      to: 'on'
+      for:
+        minutes: 5
+      trigger: state
+    - entity_id:
+        - sensor.diskstation_volume_1_status
+        - sensor.diskstation_drive_1_status
+      not_to: normal
+      for:
+        minutes: 5
+      trigger: state
+  conditions:
+  actions:
+    - data:
+        title: Home Maintenance Alert
+        message: '{{ trigger.to_state.attributes.friendly_name }} needs attention. Current
+        state: {{ trigger.to_state.state }} {{ trigger.to_state.attributes.unit_of_measurement
+        | default('''') }}.
+
+        '
+      action: notify.mobile_app_iphone_12_pro
+  mode: queued
+- id: ebike_track_onoff_timestamps
+  alias: Ebike – Track last ON/OFF times
+  description: ''
+  triggers:
+    - entity_id: switch.shellyplugsg3_28372f2f1e04
+      trigger: state
+  actions:
+    - choose:
+        - conditions: '{{ is_state(''switch.shellyplugsg3_28372f2f1e04'',''on'') }}'
+          sequence:
+            - target:
+                entity_id: input_datetime.ebike_last_on
+              data:
+                datetime: '{{ now().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+              action: input_datetime.set_datetime
+        - conditions: '{{ is_state(''switch.shellyplugsg3_28372f2f1e04'',''off'') }}'
+          sequence:
+            - target:
+                entity_id: input_datetime.ebike_last_off
+              data:
+                datetime: '{{ now().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+              action: input_datetime.set_datetime
+  mode: queued
+- id: ebike_track_onoff_timestamps
+  alias: Ebike – Track last ON/OFF times
+  description: ''
+  triggers:
+    - entity_id: switch.shellyplugsg3_28372f2f1e04
+      trigger: state
+  actions:
+    - choose:
+        - conditions: '{{ is_state(''switch.shellyplugsg3_28372f2f1e04'',''on'') }}'
+          sequence:
+            - target:
+                entity_id: input_datetime.ebike_last_on
+              data:
+                datetime: '{{ now().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+              action: input_datetime.set_datetime
+        - conditions: '{{ is_state(''switch.shellyplugsg3_28372f2f1e04'',''off'') }}'
+          sequence:
+            - target:
+                entity_id: input_datetime.ebike_last_off
+              data:
+                datetime: '{{ now().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+              action: input_datetime.set_datetime
+  mode: queued
+- id: ebike_track_onoff_timestamps
+  alias: Ebike – Track last ON/OFF times
+  description: ''
+  triggers:
+    - entity_id: switch.shellyplugsg3_28372f2f1e04
+      trigger: state
+  actions:
+    - choose:
+        - conditions: '{{ is_state(''switch.shellyplugsg3_28372f2f1e04'',''on'') }}'
+          sequence:
+            - target:
+                entity_id: input_datetime.ebike_last_on
+              data:
+                datetime: '{{ now().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+              action: input_datetime.set_datetime
+        - conditions: '{{ is_state(''switch.shellyplugsg3_28372f2f1e04'',''off'') }}'
+          sequence:
+            - target:
+                entity_id: input_datetime.ebike_last_off
+              data:
+                datetime: '{{ now().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+              action: input_datetime.set_datetime
+  mode: queued
