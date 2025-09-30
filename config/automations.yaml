@@ -654,24 +654,32 @@
         message: "Stopped due to peak demand window."
         entity_id: switch.shellyplugsg3_28372f2f1e04
 
-- id: ebike_stop_when_target_reached
-  alias: Ebike – Stop when daily target reached
+- id: ebike_stop_when_power_low
+  alias: Ebike – Stop when power < 90 W
   mode: restart
   trigger:
-    - platform: template
-      value_template: >
-        {% set target = states('input_number.ebike_daily_target_minutes') | float(0) %}
-        {{ (states('sensor.ebike_charging_minutes_today')|float(0)) >= target and is_state('switch.shellyplugsg3_28372f2f1e04','on') }}
+    - platform: numeric_state
+      entity_id: sensor.shellyplugsg3_28372f2f1e04_power
+      below: 90
+      for: "00:02:00"
+  condition:
+    - condition: state
+      entity_id: switch.shellyplugsg3_28372f2f1e04
+      state: "on"
   action:
     - service: switch.turn_off
-      target: { entity_id: switch.shellyplugsg3_28372f2f1e04 }
+      target:
+        entity_id: switch.shellyplugsg3_28372f2f1e04
     - service: input_select.select_option
-      target: { entity_id: input_select.ebike_charge_state }
-      data: { option: charged }
+      target:
+        entity_id: input_select.ebike_charge_state
+      data:
+        option: charged
     - service: persistent_notification.create
       data:
         title: Ebike charging
-        message: "Charging target reached for today."
+        message: "Charging stopped: Battery sufficiently charged. (Power dropped below 90 W)"
+
 
 - id: ebike_daily_reset
   alias: Ebike – Daily reset
