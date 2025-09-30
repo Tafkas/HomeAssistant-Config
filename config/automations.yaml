@@ -214,7 +214,6 @@
         total_home_usage: "{{ (self_consumed_solar + grid_import) | round(2) }}"
         amount_saved: "{{ (self_consumed_solar * price) | round(2) }}"
     - action: notify.notify
-    - action: notify.notify
       data:
         title: "📊 Daily Energy Report"
         message: >
