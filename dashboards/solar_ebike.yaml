@@ -1,0 +1,496 @@
+title: Solar & E‑Bike
+views:
+  - title: Solar & E‑Bike
+    path: solar_ebike
+    icon: mdi:solar-power
+    panel: true
+    # NOTE:
+    # - This dashboard uses both core and custom cards.
+    # - Custom cards used (already present per your update entities):
+    #     • Mushroom (custom:mushroom-*)
+    #     • ApexCharts (custom:apexcharts-card)
+    # - If a custom card is missing, install via HACS or replace with the commented fallbacks.
+    # - Replace the e‑bike charger switch/power/energy entities below if your charger uses a different plug.
+    cards:
+      - type: vertical-stack
+        cards:
+
+          # ================
+          # HEADER / STATUS
+          # ================
+          - type: grid
+            columns: 4
+            square: false
+            cards:
+              # Weather summary (impact on solar)
+              - type: weather-forecast
+                entity: weather.forecast_home
+                name: Weather now
+
+              # Grid Flow (Import/Export)
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% set p = states('sensor.shellypro3em_08f9e0e88160_total_active_power')|float(0) %}
+                  {{ 'Exporting to Grid' if p < 0 else 'Importing from Grid' }}
+                secondary: >
+                  {% set p = states('sensor.shellypro3em_08f9e0e88160_total_active_power')|float(0) %}
+                  {{ (p|abs)|round(0) }} W (net)
+                icon: >
+                  {% set p = states('sensor.shellypro3em_08f9e0e88160_total_active_power')|float(0) %}
+                  {{ 'mdi:transmission-tower-export' if p < 0 else 'mdi:transmission-tower-import' }}
+                icon_color: >
+                  {% set p = states('sensor.shellypro3em_08f9e0e88160_total_active_power')|float(0) %}
+                  {{ 'green' if p < 0 else 'red' }}
+                tap_action:
+                  action: more-info
+
+              # Solar forecast now (replace with real inverter sensor if available)
+              - type: custom:mushroom-entity-card
+                entity: sensor.solcast_pv_forecast_power_now
+                name: Solar (forecast) now
+                icon: mdi:solar-power
+                icon_color: yellow
+                layout: vertical
+
+              # Surplus solar available (positive W = available to use)
+              - type: custom:mushroom-entity-card
+                entity: sensor.excess_solar_export
+                name: Surplus solar (W)
+                icon: mdi:home-export-outline
+                icon_color: green
+                layout: vertical
+
+          # ======================
+          # 1) SOLAR OVERVIEW
+          # ======================
+          - type: markdown
+            content: |
+              ## Solar Overview
+              - Current solar vs grid status, day totals, and forecast at a glance.
+
+          - type: grid
+            columns: 3
+            square: false
+            cards:
+              # Net Grid Power (W)
+              - type: gauge
+                name: Net Grid Power
+                entity: sensor.shellypro3em_08f9e0e88160_total_active_power
+                unit: W
+                min: -5000
+                max: 5000
+                severity:
+                  green: -5000   # Export
+                  yellow: -300
+                  red: 0         # Import
+
+              # Surplus Export (W)
+              - type: gauge
+                name: Surplus Export
+                entity: sensor.excess_solar_export
+                unit: W
+                min: 0
+                max: 5000
+                severity:
+                  green: 200
+                  yellow: 50
+                  red: 0
+
+              # Daily Solar Production (kWh)
+              - type: gauge
+                name: Solar Today
+                entity: sensor.daily_solar_production
+                unit: kWh
+                min: 0
+                max: 40
+                severity:
+                  green: 15
+                  yellow: 5
+                  red: 0
+
+          # Daily/Weekly energy generation & grid exchange
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Solar & Grid (Last 7 days)
+              show_states: false
+              colorize_states: true
+            graph_span: 7d
+            span:
+              start: day
+            apex_config:
+              yaxis:
+                - decimalsInFloat: 2
+                  title:
+                    text: kWh
+            series:
+              # Show daily totals as columns; uses long-term statistics
+              - entity: sensor.daily_solar_production
+                name: Solar
+                type: column
+                group_by:
+                  func: max
+                  duration: 1d
+              - entity: sensor.daily_grid_import
+                name: Grid Import
+                type: column
+                color: '#E53935'
+                group_by:
+                  func: max
+                  duration: 1d
+              - entity: sensor.daily_grid_export
+                name: Grid Export
+                type: column
+                color: '#43A047'
+                group_by:
+                  func: max
+                  duration: 1d
+            # Fallback (core):
+            # - type: statistics-graph
+            #   title: Solar & Grid (Last 7 days)
+            #   days_to_show: 7
+            #   period: day
+            #   entities:
+            #     - sensor.daily_solar_production
+            #     - sensor.daily_grid_import
+            #     - sensor.daily_grid_export
+
+          - type: entities
+            title: Weather Impact & Forecast
+            entities:
+              - entity: sensor.openweathermap_cloud_coverage
+                name: Cloud cover
+              - entity: sensor.openweathermap_uv_index
+                name: UV index
+              - entity: sensor.solcast_pv_forecast_forecast_today
+                name: Solar forecast (today, kWh)
+              - entity: sensor.solcast_pv_forecast_peak_time_today
+                name: Peak time (today)
+              - entity: sensor.solcast_pv_forecast_forecast_tomorrow
+                name: Solar forecast (tomorrow, kWh)
+              - entity: sensor.solcast_pv_forecast_peak_time_tomorrow
+                name: Peak time (tomorrow)
+
+          # ==============================
+          # 2) E-BIKE CHARGING MANAGEMENT
+          # ==============================
+          - type: markdown
+            content: |
+              ## E‑Bike Charging
+              - Manage charging to prioritize solar usage and avoid peak tariffs.
+              - NOTE: Update the "E‑Bike Charger Outlet" entity below to your actual charger plug if different.
+
+          - type: grid
+            columns: 3
+            square: false
+            cards:
+              # MAIN CONTROL: E‑Bike charger outlet switch
+              - type: custom:mushroom-entity-card
+                entity: switch.shellyplusplugs_d4d4da363900  # <-- CHANGE if your e‑bike charger uses another plug
+                name: E‑Bike Charger Outlet
+                icon: mdi:bike-fast
+                layout: vertical
+                tap_action:
+                  action: toggle
+                secondary_info: state
+
+              # Charging power (W) with dynamic color
+              - type: custom:mushroom-template-card
+                entity: sensor.shellyplusplugs_d4d4da363900_power  # <-- CHANGE if needed
+                primary: Charger Power
+                secondary: >
+                  {{ states('sensor.shellyplusplugs_d4d4da363900_power')|float(0)|round(0) }} W
+                icon: mdi:flash
+                icon_color: >
+                  {{ 'green' if (states('sensor.shellyplusplugs_d4d4da363900_power')|float(0)) > 50 else 'grey' }}
+                layout: vertical
+
+              # Charging energy today (kWh)
+              - type: custom:mushroom-entity-card
+                entity: sensor.ebike_estimated_energy_today
+                name: E‑Bike Energy Today
+                icon: mdi:counter
+                layout: vertical
+
+          - type: entities
+            title: Charging Status & Targets
+            show_header_toggle: false
+            entities:
+              - entity: input_select.ebike_charge_state
+                name: Charge State
+              - entity: sensor.ebike_charging_minutes_today
+                name: Charging Minutes Today
+              - entity: input_datetime.ebike_last_on
+                name: Last Turned On
+              - entity: input_datetime.ebike_last_off
+                name: Last Turned Off
+              - type: section
+                label: Targets & Thresholds
+              - entity: input_number.ebike_daily_target_minutes
+                name: Daily Target (min)
+              - entity: input_number.ebike_start_threshold_w
+                name: Start Threshold (W)
+              - entity: input_number.ebike_start_dwell_min
+                name: Start Dwell (min)
+              - entity: input_number.ebike_stop_threshold_w
+                name: Stop Threshold (W)
+              - entity: input_number.ebike_stop_dwell_min
+                name: Stop Dwell (min)
+              - entity: input_number.ebike_min_charge_min
+                name: Minimum Charge (min)
+              - entity: input_number.ebike_min_pause_min
+                name: Minimum Pause (min)
+
+          - type: grid
+            columns: 3
+            square: false
+            cards:
+              # QUICK ACTIONS
+              - type: custom:mushroom-chips-card
+                chips:
+                  - type: action
+                    icon: mdi:play
+                    content: Start Now
+                    tap_action:
+                      action: call-service
+                      service: switch.turn_on
+                      target:
+                        entity_id: switch.shellyplusplugs_d4d4da363900
+                  - type: action
+                    icon: mdi:stop
+                    content: Stop
+                    tap_action:
+                      action: call-service
+                      service: switch.turn_off
+                      target:
+                        entity_id: switch.shellyplusplugs_d4d4da363900
+                  - type: action
+                    icon: mdi:lightning-bolt
+                    content: Solar Only
+                    tap_action:
+                      action: call-service
+                      service: automation.turn_on
+                      target:
+                        entity_id:
+                          - automation.ebike_start_on_solar_excess
+                          - automation.ebike_stop_on_low_solar
+                          - automation.ebike_stop_when_daily_target_reached
+                  - type: entity
+                    entity: input_boolean.ebike_block_peak
+                    name: Peak Block
+                  - type: entity
+                    entity: input_boolean.ebike_offpeak_backup
+                    name: Off‑Peak Backup
+
+              # Automation toggles
+              - type: entities
+                title: Automations (Enable/Disable)
+                show_header_toggle: false
+                entities:
+                  - automation.ebike_start_on_solar_excess
+                  - automation.ebike_stop_on_low_solar
+                  - automation.ebike_stop_when_daily_target_reached
+                  - automation.ebike_stop_when_peak_demand_starts
+                  - automation.ebike_start_on_off_peak_backup
+                  - automation.ebike_stop_when_power_90_w
+                  - automation.ebike_sync_state_with_manual_switch
+                  - automation.ebike_track_last_on_off_times
+
+              # Schedules & Peak Tariff
+              - type: entities
+                title: Schedules & Peak Windows
+                show_header_toggle: false
+                entities:
+                  - entity: schedule.ebike_offpeak
+                    name: E‑Bike Off‑Peak Schedule
+                  - entity: schedule.peak_demand
+                    name: Peak Demand Window
+                  - entity: input_boolean.ebike_block_peak
+                    name: Block Charging During Peak
+                  - entity: input_boolean.ebike_offpeak_backup
+                    name: Allow Off‑Peak Backup Charging
+
+          # Optimal charging recommendation (dynamic)
+          - type: markdown
+            title: Optimal Charging Time Recommendation
+            content: >
+              {% set thr = states('input_number.ebike_start_threshold_w')|float(150) %}
+              {% set surplus = states('sensor.excess_solar_export')|float(0) %}
+              {% set p_now = states('sensor.solcast_pv_forecast_power_now')|float(0) %}
+              {% set p_30 = states('sensor.solcast_pv_forecast_power_in_30_minutes')|float(0) %}
+              {% set p_60 = states('sensor.solcast_pv_forecast_power_in_1_hour')|float(0) %}
+              {% set peak_today = states('sensor.solcast_pv_forecast_peak_time_today') %}
+              {% set peak_tmrrw = states('sensor.solcast_pv_forecast_peak_time_tomorrow') %}
+              {% set peak_today_fmt = peak_today and as_datetime(peak_today)|as_local|strftime('%H:%M') %}
+              {% set peak_tmrrw_fmt = peak_tmrrw and as_datetime(peak_tmrrw)|as_local|strftime('%H:%M') %}
+              {% if surplus >= thr %}
+              ✅ Start charging now: Surplus {{ surplus|round(0) }} W ≥ threshold {{ thr|round(0) }} W.
+              {% elif p_30 >= thr %}
+              ⏳ Consider starting in ~30 min (forecast {{ p_30|round(0) }} W ≥ {{ thr|round(0) }} W).
+              {% elif p_60 >= thr %}
+              ⏳ Consider starting in ~60 min (forecast {{ p_60|round(0) }} W ≥ {{ thr|round(0) }} W).
+              {% elif peak_today_fmt %}
+              📈 Target around today's peak at {{ peak_today_fmt }}.
+              {% elif peak_tmrrw_fmt %}
+              📈 Low output today. Target tomorrow around {{ peak_tmrrw_fmt }}.
+              {% else %}
+              ℹ️ Awaiting sufficient solar or use Off‑Peak Backup if needed.
+              {% endif %}
+              <br><small>Tip: Adjust thresholds/dwell in "Charging Status & Targets" to tune behavior.</small>
+
+          # ==============================
+          # 3) ENERGY EFFICIENCY INSIGHTS
+          # ==============================
+          - type: markdown
+            content: |
+              ## Energy Efficiency Insights
+              - Visualize real-time flow and historical charging behavior.
+
+          # Real-time "flow-like" summary
+          - type: custom:mushroom-chips-card
+            alignment: justify
+            chips:
+              - type: template
+                icon: mdi:solar-power
+                icon_color: yellow
+                content: >
+                  {{ (states('sensor.solcast_pv_forecast_power_now')|float(0))|round(0) }} W Solar (forecast)
+              - type: template
+                icon: mdi:home-lightning-bolt
+                icon_color: >
+                  {% set w = states('sensor.shellypro3em_08f9e0e88160_total_active_power')|float(0) %}
+                  {{ 'green' if w < 0 else 'red' }}
+                content: >
+                  Grid {{ 'Export' if (states('sensor.shellypro3em_08f9e0e88160_total_active_power')|float(0)) < 0 else 'Import' }} {{ (states('sensor.shellypro3em_08f9e0e88160_total_active_power')|float(0)|abs)|round(0) }} W
+              - type: template
+                icon: mdi:bike
+                icon_color: >
+                  {% set p = states('sensor.shellyplusplugs_d4d4da363900_power')|float(0) %}
+                  {{ 'green' if p > 50 else 'grey' }}
+                content: >
+                  E‑Bike {{ (states('sensor.shellyplusplugs_d4d4da363900_power')|float(0))|round(0) }} W
+              - type: template
+                icon: mdi:home-export-outline
+                icon_color: green
+                content: >
+                  Surplus {{ (states('sensor.excess_solar_export')|float(0))|round(0) }} W
+
+          # Surplus vs Start Threshold (static ranges)
+          - type: gauge
+            name: Surplus vs Start Threshold
+            entity: sensor.excess_solar_export
+            min: 0
+            max: 1500
+            unit: W
+            severity:
+              green: 300
+              yellow: 100
+              red: 0
+
+          # Historical charging power (last 24h)
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: E‑Bike Charger Power (Last 24h)
+              show_states: false
+            graph_span: 24h
+            apex_config:
+              yaxis:
+                - title:
+                    text: W
+            series:
+              - entity: sensor.shellyplusplugs_d4d4da363900_power  # <-- CHANGE if needed
+                name: Charger Power
+                type: line
+                stroke_width: 2
+                group_by:
+                  func: avg
+                  duration: 5min
+
+          # Historical charging minutes (daily trend)
+          - type: statistics-graph
+            title: Charging Minutes — Last 14 days
+            days_to_show: 14
+            period: day
+            stat_types:
+              - max
+            entities:
+              - sensor.ebike_charging_minutes_today
+
+          # -------------------------
+          # Charging Cost Analysis
+          # -------------------------
+          - type: markdown
+            title: Charging Cost Analysis (Approx.)
+            content: >
+              {% set ebike_kwh = states('sensor.ebike_estimated_energy_today')|float(0) %}
+              {% set self_solar_kwh = states('sensor.self_consumed_solar_energy_today')|float(0) %}
+              {% set grid_imp_kwh = states('sensor.daily_grid_import')|float(0) %}
+              {% set solar_today_kwh = states('sensor.daily_solar_production')|float(0) %}
+              {% set solar_share_kwh = [ebike_kwh, self_solar_kwh]|min %}
+              {% set grid_share_kwh = (ebike_kwh - solar_share_kwh)|max(0) %}
+              ### Today
+              - E‑Bike energy: **{{ ebike_kwh|round(2) }} kWh**
+              - Estimated from Solar: **{{ solar_share_kwh|round(2) }} kWh** (upper‑bound)
+              - Estimated from Grid: **{{ grid_share_kwh|round(2) }} kWh** (lower‑bound)
+              - Home Solar Production: {{ solar_today_kwh|round(2) }} kWh
+              - Home Grid Import: {{ grid_imp_kwh|round(2) }} kWh
+              <small>Note: For exact costs, add a price helper (e.g. input_number.grid_price_kwh) and template sensors to multiply price by the e‑bike grid share.</small>
+
+          # ======================
+          # EXTRA: Helpful Info
+          # ======================
+          - type: entities
+            title: System & Maintenance (Optional)
+            show_header_toggle: false
+            entities:
+              - entity: automation.notify_on_first_solar_export_of_the_day
+                name: Notify on first solar export
+              - entity: input_boolean.solar_export_notified_today
+                name: Export notified today (flag)
+              - type: divider
+              - entity: update.apexcharts_card_update
+              - entity: update.mushroom_update
+              - entity: update.solcast_pv_forecast_update
+
+# --------------------
+# CUSTOMIZATION NOTES:
+# --------------------
+# 1) E‑Bike Charger Entities:
+#    Replace these if your charger plug differs:
+#      - switch.shellyplusplugs_d4d4da363900
+#      - sensor.shellyplusplugs_d4d4da363900_power
+#    Candidate alternatives in your system:
+#      - switch.shellyplugsg3_28372f2f1e04 / sensor.shellyplugsg3_28372f2f1e04_power
+#      - switch.smart_plug_1908218495823925185548e1e9023052_outlet / sensor.smart_plug_1908218495823925185548e1e9023052_power
+#      - switch.smart_plug_1908212877531725185548e1e90233ca_outlet / sensor.smart_plug_1908212877531725185548e1e90233ca_power
+#
+# 2) Actual Solar Production:
+#    This dashboard uses Solcast "power now" as an estimate for current solar.
+#    If you have a real-time inverter entity (e.g., sensor.inverter_pv_power),
+#    replace sensor.solcast_pv_forecast_power_now with that for true production.
+#
+# 3) Costs:
+#    For precise cost split (solar vs grid) of e‑bike charging:
+#      - Use the smart plug's accumulated energy sensor (e.g. *_energy), add Utility Meter helpers to track daily.
+#      - Add a price helper: input_number.grid_price_kwh (€/kWh).
+#      - Create template sensors to compute cost from grid vs solar periods.
+#
+# 4) Threshold Tuning:
+#    - input_number.ebike_start_threshold_w: surplus W required to auto-start
+#    - input_number.ebike_stop_threshold_w: low-surplus W to auto-stop
+#    - Dwell times prevent rapid toggling during passing clouds.
+#
+# 5) Peak Windows:
+#    - schedule.peak_demand marks expensive times.
+#    - input_boolean.ebike_block_peak prevents charging during peak.
+#    - schedule.ebike_offpeak enables a safe backup window (night).
+#
+# 6) Optional Fallbacks:
+#    If custom cards are not available:
+#     - Replace custom:mushroom-* with core "entities" / "button" cards.
+#     - Replace custom:apexcharts-card with "statistics-graph" / "history-graph" as shown.
+#
+# 7) Import:
+#    - Save as a Dashboard (Settings → Dashboards → + Add Dashboard).
+#    - Add resources for custom cards (Settings → Dashboards → Resources).
