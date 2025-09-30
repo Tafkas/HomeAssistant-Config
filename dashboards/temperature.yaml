@@ -1,0 +1,125 @@
+views:
+  - title: Temperature Dashboard
+    path: temperature
+    icon: mdi:thermometer
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: '## Indoor Temperature'
+          - show_name: true
+            show_icon: true
+            show_state: true
+            type: glance
+            entities:
+              - entity: sensor.living_room_station_temperature
+                name: Living Room
+              - entity: sensor.living_room_station_bedroom_temperature
+                name: Bedroom
+              - entity: sensor.living_room_station_office_temperature
+                name: Office
+              - entity: sensor.living_room_station_hans_temperature
+                name: Hans' Room
+              - entity: sensor.temperature_humidity_sensor_bc03_temperature
+                name: Bathroom
+            columns: 5
+            state_color: false
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.living_room_station_temperature
+            name: Living Room Temp
+            min: 15
+            max: 30
+          - type: gauge
+            entity: sensor.living_room_station_humidity
+            name: Living Room Humidity
+            min: 0
+            max: 100
+          - type: gauge
+            entity: sensor.living_room_station_carbon_dioxide
+            name: Living Room CO2
+            min: 400
+            max: 2000
+            severity:
+              green: 0
+              yellow: 1000
+              red: 1500
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: '## Outdoor Weather'
+          - type: weather-forecast
+            entity: weather.openweathermap
+          - type: glance
+            entities:
+              - entity: sensor.openweathermap_temperature
+                name: Temperature
+              - entity: sensor.openweathermap_feels_like_temperature
+                name: Feels Like
+              - entity: sensor.openweathermap_humidity
+                name: Humidity
+              - entity: sensor.living_room_station_outdoor_module_temperature
+                name: Outdoor Module
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: '## Room Comparisons'
+          - type: custom:mini-graph-card
+            entities:
+              - entity: sensor.living_room_station_temperature
+                name: Living Room
+              - entity: sensor.living_room_station_bedroom_temperature
+                name: Bedroom
+              - entity: sensor.living_room_station_office_temperature
+                name: Office
+              - entity: sensor.living_room_station_hans_temperature
+                name: Hans' Room
+            name: Temperature Comparison
+            hours_to_show: 24
+            points_per_hour: 4
+            line_width: 2
+            hour24: true
+          - type: custom:mini-graph-card
+            entities:
+              - entity: sensor.living_room_station_humidity
+                name: Living Room
+              - entity: sensor.living_room_station_bedroom_humidity
+                name: Bedroom
+              - entity: sensor.living_room_station_office_humidity
+                name: Office
+              - entity: sensor.living_room_station_hans_humidity
+                name: Hans' Room
+              - entity: sensor.temperature_humidity_sensor_bc03_humidity
+                name: Bath Room
+            name: Humidity Comparison
+            hours_to_show: 24
+            points_per_hour: 4
+            line_width: 2
+            hour24: true
+          - type: custom:mini-graph-card
+            entities:
+              - entity: sensor.living_room_station_carbon_dioxide
+                name: Living Room
+              - entity: sensor.living_room_station_bedroom_carbon_dioxide
+                name: Bedroom
+              - entity: sensor.living_room_station_office_carbon_dioxide
+                name: Office
+              - entity: sensor.living_room_station_hans_carbon_dioxide
+                name: Hans' Room
+            name: CO2 Comparison
+            hours_to_show: 24
+            points_per_hour: 4
+            line_width: 2
+            hour24: true
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: '## Bathroom'
+          - type: entities
+            title: Temperature/Humidity Sensor BC03
+            entities:
+              - entity: sensor.temperature_humidity_sensor_bc03_humidity
+                name: Humidity
+              - entity: sensor.temperature_humidity_sensor_bc03_temperature
+                name: Temperature

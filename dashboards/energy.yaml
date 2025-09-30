@@ -1,0 +1,126 @@
+title: Energy Management
+views:
+  - path: energy
+    title: Energy Management
+    icon: mdi:lightning-bolt
+    cards:
+      - type: custom:mushroom-title-card
+        title: Energy Overview
+        subtitle: Monitor and optimize your home's energy usage
+      - type: horizontal-stack
+        cards:
+          - type: custom:mini-graph-card
+            name: Total Power Consumption
+            entities:
+              - entity: sensor.shellypro3em_08f9e0e88160_total_active_power
+            hours_to_show: 24
+            points_per_hour: 4
+            line_color: '#FFA500'
+            icon: mdi:transmission-tower
+          - type: custom:mini-graph-card
+            name: Total Energy Today
+            entities:
+              - entity: sensor.shellypro3em_08f9e0e88160_total_active_energy
+            hours_to_show: 24
+            points_per_hour: 1
+            line_color: '#4CAF50'
+            icon: mdi:calendar-clock
+      - type: custom:mushroom-chips-card
+        chips:
+          - type: entity
+            entity: sensor.shellypro3em_08f9e0e88160_total_active_power
+            icon: mdi:flash
+            name: Current Power
+          - type: entity
+            entity: sensor.shellypro3em_08f9e0e88160_total_active_energy
+            icon: mdi:calendar-clock
+            name: Energy Today
+      - type: custom:apexcharts-card
+        header:
+          title: Power Consumption by Phase
+          show: true
+        series:
+          - entity: sensor.shellypro3em_08f9e0e88160_phase_a_active_power
+            name: Phase A
+            color: '#FF5733'
+          - entity: sensor.shellypro3em_08f9e0e88160_phase_b_active_power
+            name: Phase B
+            color: '#33FF57'
+          - entity: sensor.shellypro3em_08f9e0e88160_phase_c_active_power
+            name: Phase C
+            color: '#3357FF'
+      - type: custom:mushroom-title-card
+        title: Smart Plugs Energy Usage
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: custom:mushroom-entity-card
+            entity: sensor.smart_plug_1908218495823925185548e1e9023052_power
+            name: Living Room Light
+            icon: mdi:lightbulb
+            primary_info: name
+            secondary_info: state
+            fill_container: true
+          - type: custom:mushroom-entity-card
+            entity: sensor.smart_plug_1908212877531725185548e1e90233ca_power
+            name: Dishwasher
+            icon: mdi:dishwasher
+            primary_info: name
+            secondary_info: state
+            fill_container: true
+          - type: custom:mushroom-entity-card
+            entity: sensor.smart_plug_1908213017294825185548e1e9024169_power
+            name: Refrigerator
+            icon: mdi:fridge
+            primary_info: name
+            secondary_info: state
+            fill_container: true
+      - type: custom:mushroom-title-card
+        title: Energy Saving Controls
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-light-card
+            entity: light.yeelight_ceilc_0x178697e2
+            name: Living Room
+            icon: mdi:ceiling-light
+            use_light_color: true
+          - type: custom:mushroom-light-card
+            entity: light.yeelight_ceilc_0x1786992c
+            name: Bedroom
+            icon: mdi:bed-empty
+            use_light_color: true
+          - type: custom:mushroom-light-card
+            entity: light.yeelight_ceiling11_0x66a47e6
+            name: Office
+            icon: mdi:desk
+            use_light_color: true
+      - type: custom:mushroom-title-card
+        title: Energy Tips
+        subtitle: Smart ways to reduce your energy consumption
+      - type: markdown
+        content: >
+          1. Turn off lights when not in use 2. Unplug devices that aren't being
+          used 3. Use energy-efficient appliances 4. Adjust thermostat settings
+          5. Use natural light when possible
+      - type: custom:apexcharts-card
+        header:
+          title: Daily Energy Consumption
+          show: true
+        series:
+          - entity: sensor.shellypro3em_08f9e0e88160_total_active_energy
+            type: column
+            group_by:
+              func: diff
+              duration: 1d
+      - type: custom:mushroom-title-card
+        title: High Consumption Alerts
+      - type: conditional
+        conditions:
+          - entity: sensor.shellypro3em_08f9e0e88160_total_active_power
+            above: 5000
+        card:
+          type: custom:mushroom-alert-card
+          icon: mdi:alert
+          title: High Power Consumption
+          subtitle: Current consumption is above 5kW

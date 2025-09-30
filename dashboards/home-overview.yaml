@@ -1,0 +1,81 @@
+title: Home Overview
+views:
+  - path: home-overview
+    title: Home Overview
+    icon: mdi:home
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              # 🏠 Home Overview
+      - type: horizontal-stack
+        cards:
+          - type: custom:mini-graph-card
+            name: Indoor Temperature
+            entities:
+              - entity: sensor.living_room_station_temperature
+                name: Living Room
+              - entity: sensor.living_room_station_bedroom_temperature
+                name: Bedroom
+              - entity: sensor.living_room_station_office_temperature
+                name: Office
+            hours_to_show: 24
+            points_per_hour: 2
+            line_width: 2
+          - type: weather-forecast
+            entity: weather.openweathermap
+            name: Outdoor Weather
+      - type: horizontal-stack
+        cards:
+          - type: custom:mini-graph-card
+            name: Power Consumption
+            entities:
+              - entity: sensor.shellypro3em_08f9e0e88160_total_active_power
+            hours_to_show: 24
+            points_per_hour: 4
+            icon: mdi:flash
+          - type: custom:mushroom-entity-card
+            entity: sensor.shellypro3em_08f9e0e88160_total_active_energy
+            name: Energy Today
+            icon: mdi:calendar-clock
+            secondary_info: state
+      - type: glance
+        title: Network Status
+        entities:
+          - entity: binary_sensor.fritz_box_7590_ax_connection
+            name: Internet
+          - entity: sensor.fritz_box_7590_ax_download_throughput
+            name: Download
+          - entity: sensor.fritz_box_7590_ax_upload_throughput
+            name: Upload
+          - entity: binary_sensor.diskstation_security_status
+            name: NAS Security
+      - type: custom:battery-state-card
+        title: Battery Levels
+        entities:
+          - sensor.iphone_12_pro_battery_level
+          - sensor.stades_ipad_battery_level
+          - sensor.living_room_station_outdoor_module_battery
+      - type: entities
+        title: Quick Actions
+        show_header_toggle: false
+        entities:
+          - entity: light.yeelight_ceilc_0x178697e2
+            name: Living Room Light
+          - entity: switch.fritz_box_7590_ax_wi_fi_fritz_box_gastzugang
+            name: Guest Wi-Fi
+      - type: custom:mushroom-chips-card
+        chips:
+          - type: entity
+            entity: sensor.openweathermap_uv_index
+            icon: mdi:weather-sunny-alert
+          - type: entity
+            entity: sensor.living_room_station_carbon_dioxide
+            icon: mdi:molecule-co2
+          - type: entity
+            entity: sensor.living_room_station_noise
+            icon: mdi:volume-high
+          - type: entity
+            entity: update.hacs_update
+            icon: mdi:package-up

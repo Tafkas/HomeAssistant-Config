@@ -1,0 +1,76 @@
+title: System Dashboard
+views:
+  - title: System Overview
+    path: system
+    icon: mdi:desktop-tower-monitor
+    cards:
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            name: CPU Usage
+            entity: sensor.system_monitor_processor_use
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 50
+              red: 80
+          - type: gauge
+            name: Memory Usage
+            entity: sensor.system_monitor_memory_use
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 70
+              red: 90
+      - type: horizontal-stack
+        cards:
+          - type: entity
+            name: CPU Temperature
+            entity: sensor.system_monitor_processor_temperature
+            icon: mdi:thermometer
+          - type: entity
+            name: Free Memory
+            entity: sensor.system_monitor_memory_free
+            icon: mdi:memory
+      - type: glance
+        title: System Load
+        entities:
+          - entity: sensor.system_monitor_load_1m
+            name: 1m Load
+            icon: mdi:chip
+          - entity: sensor.system_monitor_load_5m
+            name: 5m Load
+            icon: mdi:chip
+          - entity: sensor.system_monitor_load_15m
+            name: 15m Load
+            icon: mdi:chip
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            name: Disk Usage
+            entity: sensor.system_monitor_disk_usage
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 70
+              red: 90
+          - type: entity
+            name: Free Disk Space
+            entity: sensor.system_monitor_disk_free
+            icon: mdi:harddisk
+      - type: entity-filter
+        entities:
+          - entity: sensor.system_monitor_processor_use
+          - entity: sensor.system_monitor_memory_use
+          - entity: sensor.system_monitor_disk_usage
+        state_filter:
+          - operator: '>'
+            value: 80
+        card:
+          type: entities
+          title: System Alerts
+          show_header_toggle: false
+        show_empty: false

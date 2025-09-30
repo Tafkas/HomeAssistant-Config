@@ -1,0 +1,157 @@
+title: Climate & Air Quality
+views:
+  - path: climate
+    title: Climate & Air Quality
+    cards:
+      - type: custom:weather-card
+        entity: weather.openweathermap
+        number_of_forecasts: 5
+      - type: markdown
+        content: '## Indoor Climate'
+      - type: grid
+        columns: 4
+        square: false
+        cards:
+          - type: gauge
+            entity: sensor.living_room_station_temperature
+            name: Living Room
+            min: 0
+            max: 40
+            severity:
+              green: 18
+              yellow: 24
+              red: 28
+          - type: gauge
+            entity: sensor.living_room_station_bedroom_temperature
+            name: Bedroom
+            min: 0
+            max: 40
+            severity:
+              green: 16
+              yellow: 22
+              red: 26
+          - type: gauge
+            entity: sensor.living_room_station_office_temperature
+            name: Office
+            min: 0
+            max: 40
+            severity:
+              green: 18
+              yellow: 24
+              red: 28
+          - type: gauge
+            entity: sensor.living_room_station_hans_temperature
+            name: Hans' Room
+            min: 0
+            max: 40
+            severity:
+              green: 18
+              yellow: 24
+              red: 28
+      - type: custom:mini-graph-card
+        entities:
+          - entity: sensor.living_room_station_temperature
+            name: Living Room
+          - entity: sensor.living_room_station_bedroom_temperature
+            name: Bedroom
+          - entity: sensor.living_room_station_office_temperature
+            name: Office
+          - entity: sensor.living_room_station_hans_temperature
+            name: Hans' Room
+          - entity: sensor.living_room_station_outdoor_module_temperature
+            name: Outdoor
+        name: Temperature Trends
+        hours_to_show: 24
+        points_per_hour: 2
+        line_width: 2
+        hour24: true
+      - type: markdown
+        content: '## Humidity Levels'
+      - type: grid
+        columns: 4
+        square: false
+        cards:
+          - type: custom:mini-graph-card
+            entities:
+              - entity: sensor.living_room_station_humidity
+                name: Living Room
+            name: Living Room
+            line_color: '#3498db'
+            hours_to_show: 24
+          - type: custom:mini-graph-card
+            entities:
+              - entity: sensor.living_room_station_bedroom_humidity
+                name: Bedroom
+            name: Bedroom
+            line_color: '#2ecc71'
+            hours_to_show: 24
+          - type: custom:mini-graph-card
+            entities:
+              - entity: sensor.living_room_station_office_humidity
+                name: Office
+            name: Office
+            line_color: '#e74c3c'
+            hours_to_show: 24
+          - type: custom:mini-graph-card
+            entities:
+              - entity: sensor.living_room_station_hans_humidity
+                name: Hans' Room
+            name: Hans' Room
+            line_color: '#f39c12'
+            hours_to_show: 24
+      - type: custom:apexcharts-card
+        graph_span: 24h
+        header:
+          show: true
+          title: CO₂ Levels Over Time
+        series:
+          - entity: sensor.living_room_station_carbon_dioxide
+            name: Living Room
+          - entity: sensor.living_room_station_bedroom_carbon_dioxide
+            name: Bedroom
+          - entity: sensor.living_room_station_office_carbon_dioxide
+            name: Office
+          - entity: sensor.living_room_station_hans_carbon_dioxide
+            name: Hans' Room
+      - type: markdown
+        content: '## Additional Metrics'
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: entity
+            entity: sensor.living_room_station_noise
+            name: Noise Level
+          - type: entity
+            entity: sensor.living_room_station_atmospheric_pressure
+            name: Atmospheric Pressure
+          - type: entity
+            entity: sensor.openweathermap_uv_index
+            name: UV Index
+          - type: entity
+            entity: sensor.openweathermap_wind_speed
+            name: Wind Speed
+          - type: entity
+            entity: sensor.openweathermap_humidity
+            name: Outdoor Humidity
+          - type: entity
+            entity: sensor.living_room_station_outdoor_module_temperature
+            name: Outdoor Temperature
+      - type: markdown
+        content: '## Outdoor Conditions'
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: entity
+            entity: sensor.openweathermap_temperature
+            name: Temperature
+          - type: entity
+            entity: sensor.openweathermap_feels_like_temperature
+            name: Feels Like
+      - type: entities
+        entities:
+          - entity: sensor.living_room_station_rain_gauge_precipitation
+          - entity: sensor.living_room_station_rain_gauge_precipitation_today
+          - entity: sensor.living_room_station_smart_anemometer_wind_speed
+          - entity: sensor.living_room_station_smart_anemometer_wind_direction

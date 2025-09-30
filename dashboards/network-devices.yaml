@@ -1,0 +1,163 @@
+title: Network & Devices
+views:
+  - path: network-devices
+    title: Network & Devices
+    icon: mdi:network
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              # Internet Connection
+          - type: glance
+            entities:
+              - entity: binary_sensor.fritz_box_7590_ax_connection
+                name: Status
+              - entity: sensor.fritz_box_7590_ax_external_ip
+                name: IP Address
+              - entity: binary_sensor.fritz_box_7590_ax_wan_status
+                name: WAN Status
+            columns: 3
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                entity: sensor.fritz_box_7590_ax_download_speed
+                min: 0
+                max: 250
+                name: Download
+                unit: Mbps
+              - type: gauge
+                entity: sensor.fritz_box_7590_ax_upload_speed
+                min: 0
+                max: 50
+                name: Upload
+                unit: Mbps
+          - type: entities
+            entities:
+              - entity: sensor.fritz_box_7590_ax_connection_uptime
+                name: Connection Uptime
+              - entity: sensor.fritz_box_7590_ax_last_restart
+                name: Last Restart
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              # Wi-Fi Networks
+          - type: entities
+            entities:
+              - entity: switch.fritz_box_7590_ax_wi_fi_fritz_box_7590_if_2_4ghz
+                name: 2.4 GHz Network
+              - entity: switch.fritz_box_7590_ax_wi_fi_fritz_box_7590_if_5ghz
+                name: 5 GHz Network
+              - entity: switch.fritz_box_7590_ax_wi_fi_fritz_box_gastzugang
+                name: Guest Network
+          - type: picture
+            image_entity: image.fritz_box_7590_ax_fritz_box_gastzugang
+            camera_view: auto
+            tap_action:
+              action: more-info
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              # NAS Status
+          - type: glance
+            entities:
+              - entity: sensor.diskstation_volume_1_status
+                name: Volume Status
+              - entity: sensor.diskstation_volume_1_volume_used
+                name: Storage Used
+              - entity: sensor.diskstation_temperature
+                name: Temperature
+            columns: 3
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                entity: sensor.diskstation_cpu_utilization_total
+                name: CPU Usage
+                unit: '%'
+                min: 0
+                max: 100
+              - type: gauge
+                entity: sensor.diskstation_memory_usage_real
+                name: RAM Usage
+                unit: '%'
+                min: 0
+                max: 100
+          - type: entities
+            entities:
+              - entity: sensor.diskstation_volume_1_average_disk_temp
+                name: Avg. Disk Temp
+              - entity: binary_sensor.diskstation_security_status
+                name: Security Status
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              # Connected Devices
+          - type: entities
+            entities:
+              - entity: group.all_devices
+                name: All Devices
+                secondary_info: last-changed
+            show_header_toggle: false
+          - type: entity-filter
+            entities:
+              - device_tracker.iphone_12_pro
+              - device_tracker.ipadpro
+              - device_tracker.macbookpro16
+              - device_tracker.roborockq7max
+              - device_tracker.appletv4k
+            state_filter:
+              - home
+            card:
+              type: glance
+              title: Active Devices
+              columns: 3
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              # Network Tools
+          - type: horizontal-stack
+            cards:
+              - type: button
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  target:
+                    entity_id: button.fritz_box_7590_ax_restart
+                icon: mdi:restart
+                name: Restart Router
+              - type: button
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  target:
+                    entity_id: button.fritz_box_7590_ax_reconnect
+                icon: mdi:connection
+                name: Reconnect WAN
+              - type: button
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  target:
+                    entity_id: button.fritz_box_7590_ax_cleanup
+                icon: mdi:broom
+                name: Cleanup
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              # Printer Status
+          - type: glance
+            entities:
+              - entity: device_tracker.brothermfc_l2710dw
+                name: Printer
+              - entity: sensor.brother_mfc_l2710dw_series
+                name: Status
+              - entity: sensor.brother_mfc_l2710dw_series_bk
+                name: Toner Level
+          - type: entities
+            entities:
+              - switch.brothermfc_l2710dw_internet_access
