@@ -499,3 +499,222 @@
               data:
                 datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
   mode: queued
+
+- id: ebike_start_on_solar_excess
+  alias: Ebike – Start on solar excess
+  mode: single
+  trigger:
+    - platform: template
+      value_template: >
+        {{ states('sensor.excess_solar_export')|float(0) >= states('input_number.ebike_start_threshold_w')|float(200) }}
+      for:
+        minutes: "{{ states('input_number.ebike_start_dwell_min') | int(3) }}"
+  condition:
+    - condition: state
+      entity_id: switch.shellyplugsg3_28372f2f1e04
+      state: "off"
+    - condition: template
+      value_template: >
+        {{ states('input_select.ebike_charge_state') in ['idle','paused'] }}
+    - condition: template
+      alias: Respect min pause
+      value_template: >
+        {% set min_pause = states('input_number.ebike_min_pause_min') | int(0) %}
+        {% set t = states('input_datetime.ebike_last_off') %}
+        {{ t in ['unknown','unavailable',''] or (as_datetime(t) and (now() - as_datetime(t)).total_seconds()/60 >= min_pause) }}
+    - condition: template
+      alias: Do not start during peak if blocked
+      value_template: >
+        {{ not (is_state('input_boolean.ebike_block_peak','on') and is_state('schedule.peak_demand','on')) }}
+    - condition: template
+      alias: Skip if already charged today
+      value_template: >
+        {% set target = states('input_number.ebike_daily_target_minutes') | float(0) %}
+        {{ (states('sensor.ebike_charging_minutes_today')|float(0)) < target }}
+  action:
+    - service: switch.turn_on
+      target: { entity_id: switch.shellyplugsg3_28372f2f1e04 }
+    - service: input_select.select_option
+      target: { entity_id: input_select.ebike_charge_state }
+      data: { option: charging }
+    - service: logbook.log
+      data:
+        name: Ebike Charger
+        message: "Started charging on solar excess."
+        entity_id: switch.shellyplugsg3_28372f2f1e04
+    - service: persistent_notification.create
+      data:
+        title: Ebike charging
+        message: "Started charging using solar excess."
+
+- id: ebike_stop_on_low_solar
+  alias: Ebike – Stop on low solar
+  mode: single
+  trigger:
+    - platform: template
+      value_template: >
+        {{ states('sensor.excess_solar_export')|float(0) < states('input_number.ebike_stop_threshold_w')|float(100) }}
+      for:
+        minutes: "{{ states('input_number.ebike_stop_dwell_min') | int(2) }}"
+  condition:
+    - condition: state
+      entity_id: switch.shellyplugsg3_28372f2f1e04
+      state: "on"
+    - condition: template
+      alias: Respect min run time
+      value_template: >
+        {% set min_run = states('input_number.ebike_min_charge_min') | int(0) %}
+        {% set t = states('input_datetime.ebike_last_on') %}
+        {{ t in ['unknown','unavailable',''] or (as_datetime(t) and (now() - as_datetime(t)).total_seconds()/60 >= min_run) }}
+    - condition: template
+      alias: Keep charging if in allowed off-peak backup window
+      value_template: >
+        {{ not (is_state('input_boolean.ebike_offpeak_backup','on') and is_state('schedule.ebike_offpeak','on')) }}
+  action:
+    - service: switch.turn_off
+      target: { entity_id: switch.shellyplugsg3_28372f2f1e04 }
+    - service: input_select.select_option
+      target: { entity_id: input_select.ebike_charge_state }
+      data: { option: paused }
+    - service: logbook.log
+      data:
+        name: Ebike Charger
+        message: "Paused charging due to low solar."
+        entity_id: switch.shellyplugsg3_28372f2f1e04
+
+- id: ebike_offpeak_backup_start
+  alias: Ebike – Start on off-peak backup
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: schedule.ebike_offpeak
+      to: "on"
+  condition:
+    - condition: state
+      entity_id: input_boolean.ebike_offpeak_backup
+      state: "on"
+    - condition: state
+      entity_id: switch.shellyplugsg3_28372f2f1e04
+      state: "off"
+    - condition: template
+      alias: Not in peak window if blocked
+      value_template: >
+        {{ not (is_state('input_boolean.ebike_block_peak','on') and is_state('schedule.peak_demand','on')) }}
+    - condition: template
+      alias: Respect min pause
+      value_template: >
+        {% set min_pause = states('input_number.ebike_min_pause_min') | int(0) %}
+        {% set t = states('input_datetime.ebike_last_off') %}
+        {{ t in ['unknown','unavailable',''] or (as_datetime(t) and (now() - as_datetime(t)).total_seconds()/60 >= min_pause) }}
+    - condition: template
+      alias: Only if daily target not yet reached
+      value_template: >
+        {% set target = states('input_number.ebike_daily_target_minutes') | float(0) %}
+        {{ (states('sensor.ebike_charging_minutes_today')|float(0)) < target }}
+  action:
+    - service: switch.turn_on
+      target: { entity_id: switch.shellyplugsg3_28372f2f1e04 }
+    - service: input_select.select_option
+      target: { entity_id: input_select.ebike_charge_state }
+      data: { option: charging }
+    - service: logbook.log
+      data:
+        name: Ebike Charger
+        message: "Started off-peak backup charging."
+        entity_id: switch.shellyplugsg3_28372f2f1e04
+
+- id: ebike_stop_on_peak
+  alias: Ebike – Stop when peak demand starts
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: schedule.peak_demand
+      to: "on"
+  condition:
+    - condition: state
+      entity_id: input_boolean.ebike_block_peak
+      state: "on"
+    - condition: state
+      entity_id: switch.shellyplugsg3_28372f2f1e04
+      state: "on"
+    - condition: template
+      alias: Respect min run time
+      value_template: >
+        {% set min_run = states('input_number.ebike_min_charge_min') | int(0) %}
+        {% set t = states('input_datetime.ebike_last_on') %}
+        {{ t in ['unknown','unavailable',''] or (as_datetime(t) and (now() - as_datetime(t)).total_seconds()/60 >= min_run) }}
+  action:
+    - service: switch.turn_off
+      target: { entity_id: switch.shellyplugsg3_28372f2f1e04 }
+    - service: input_select.select_option
+      target: { entity_id: input_select.ebike_charge_state }
+      data: { option: paused }
+    - service: logbook.log
+      data:
+        name: Ebike Charger
+        message: "Stopped due to peak demand window."
+        entity_id: switch.shellyplugsg3_28372f2f1e04
+
+- id: ebike_stop_when_target_reached
+  alias: Ebike – Stop when daily target reached
+  mode: restart
+  trigger:
+    - platform: template
+      value_template: >
+        {% set target = states('input_number.ebike_daily_target_minutes') | float(0) %}
+        {{ (states('sensor.ebike_charging_minutes_today')|float(0)) >= target and is_state('switch.shellyplugsg3_28372f2f1e04','on') }}
+  action:
+    - service: switch.turn_off
+      target: { entity_id: switch.shellyplugsg3_28372f2f1e04 }
+    - service: input_select.select_option
+      target: { entity_id: input_select.ebike_charge_state }
+      data: { option: charged }
+    - service: persistent_notification.create
+      data:
+        title: Ebike charging
+        message: "Charging target reached for today."
+
+- id: ebike_daily_reset
+  alias: Ebike – Daily reset
+  mode: single
+  trigger:
+    - platform: time
+      at: "00:05:00"
+  action:
+    - service: input_select.select_option
+      target: { entity_id: input_select.ebike_charge_state }
+      data: { option: idle }
+
+- id: ebike_sync_state_on_manual
+  alias: Ebike – Sync state with manual switch
+  mode: queued
+  trigger:
+    - platform: state
+      entity_id: switch.shellyplugsg3_28372f2f1e04
+  condition: [ ]
+  action:
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: switch.shellyplugsg3_28372f2f1e04
+              state: "on"
+          sequence:
+            - service: input_select.select_option
+              target:
+                entity_id: input_select.ebike_charge_state
+              data:
+                option: charging
+        - conditions:
+            - condition: state
+              entity_id: switch.shellyplugsg3_28372f2f1e04
+              state: "off"
+            - condition: state
+              entity_id: input_select.ebike_charge_state
+              state: "charged"
+          sequence: [ ]
+      default:
+        - service: input_select.select_option
+          target:
+            entity_id: input_select.ebike_charge_state
+          data:
+            option: idle
