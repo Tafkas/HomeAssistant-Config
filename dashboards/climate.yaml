@@ -1,20 +1,117 @@
-title: Climate & Air Quality
+title: Environment & Air Quality
+# Assumptions / Recommendations:
+# - Custom cards required:
+#   - mini-graph-card (HACS)
+#   - apexcharts-card (HACS)
+#   - weather-card (HACS)
+# - All entity IDs below are assumed valid; see notes at bottom for potential issues.
+# - Colors are standardized across graphs for room identity consistency.
+# - Time windows standardized to 24h with 4 points/hour for smooth lines.
+
 views:
-  - path: climate
-    title: Climate & Air Quality
+  # =========================================================
+  # ================  OVERVIEW (AT-A-GLANCE)  ===============
+  # =========================================================
+  - title: Overview
+    path: overview
+    icon: mdi:home-thermometer-outline
     cards:
+      # Weather summary (model-based from OpenWeatherMap)
       - type: custom:weather-card
         entity: weather.openweathermap
         number_of_forecasts: 5
+
+      # Quick Living Room status (primary reference room)
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            name: Living Room Temp
+            entity: sensor.living_room_station_temperature
+            min: 15
+            max: 30
+          - type: gauge
+            name: Living Room Humidity
+            entity: sensor.living_room_station_humidity
+            min: 0
+            max: 100
+          - type: gauge
+            name: Living Room CO2
+            entity: sensor.living_room_station_carbon_dioxide
+            min: 400
+            max: 2000
+            severity:
+              green: 0
+              yellow: 1000
+              red: 1500
+
+      # Quick room snapshot (temps)
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## Rooms — Current Temperatures"
+          - type: glance
+            columns: 5
+            show_name: true
+            show_icon: true
+            show_state: true
+            entities:
+              - entity: sensor.living_room_station_temperature
+                name: Living Room
+              - entity: sensor.living_room_station_bedroom_temperature
+                name: Bedroom
+              - entity: sensor.living_room_station_office_temperature
+                name: Office
+              - entity: sensor.living_room_station_hans_temperature
+                name: "Hans' Room"
+              - entity: sensor.temperature_humidity_sensor_bc03_temperature
+                name: Bathroom
+
+      # High-level temperature comparison (24h)
+      - type: custom:mini-graph-card
+        name: Temperature — 24h Comparison
+        hours_to_show: 24
+        points_per_hour: 4
+        line_width: 2
+        hour24: true
+        show:
+          extrema: false
+          fill: false
+          legend: true
+        entities:
+          - entity: sensor.living_room_station_temperature
+            name: Living Room
+            color: "#3498db"
+          - entity: sensor.living_room_station_bedroom_temperature
+            name: Bedroom
+            color: "#9b59b6"
+          - entity: sensor.living_room_station_office_temperature
+            name: Office
+            color: "#e67e22"
+          - entity: sensor.living_room_station_hans_temperature
+            name: "Hans' Room"
+            color: "#e74c3c"
+          - entity: sensor.temperature_humidity_sensor_bc03_temperature
+            name: Bathroom
+            color: "#16a085"
+
+    # =========================================================
+  # ================  INDOOR CLIMATE DETAILS  ===============
+  # =========================================================
+  - title: Indoor Climate
+    path: indoor
+    icon: mdi:home
+    cards:
       - type: markdown
-        content: '## Indoor Climate'
+        content: "## Current Room Conditions"
+
+      # Current temperature gauges per room (consistent ranges)
       - type: grid
-        columns: 4
+        columns: 5
         square: false
         cards:
           - type: gauge
-            entity: sensor.living_room_station_temperature
             name: Living Room
+            entity: sensor.living_room_station_temperature
             min: 0
             max: 40
             severity:
@@ -22,8 +119,8 @@ views:
               yellow: 24
               red: 28
           - type: gauge
-            entity: sensor.living_room_station_bedroom_temperature
             name: Bedroom
+            entity: sensor.living_room_station_bedroom_temperature
             min: 0
             max: 40
             severity:
@@ -31,8 +128,8 @@ views:
               yellow: 22
               red: 26
           - type: gauge
-            entity: sensor.living_room_station_office_temperature
             name: Office
+            entity: sensor.living_room_station_office_temperature
             min: 0
             max: 40
             severity:
@@ -40,81 +137,172 @@ views:
               yellow: 24
               red: 28
           - type: gauge
+            name: "Hans' Room"
             entity: sensor.living_room_station_hans_temperature
-            name: Hans' Room
             min: 0
             max: 40
             severity:
               green: 18
               yellow: 24
               red: 28
-      - type: custom:mini-graph-card
-        entities:
-          - entity: sensor.living_room_station_temperature
-            name: Living Room
-          - entity: sensor.living_room_station_bedroom_temperature
-            name: Bedroom
-          - entity: sensor.living_room_station_office_temperature
-            name: Office
-          - entity: sensor.living_room_station_hans_temperature
-            name: Hans' Room
-          - entity: sensor.living_room_station_outdoor_module_temperature
-            name: Outdoor
-        name: Temperature Trends
-        hours_to_show: 24
-        points_per_hour: 2
-        line_width: 2
-        hour24: true
+          - type: gauge
+            name: Bathroom
+            entity: sensor.temperature_humidity_sensor_bc03_temperature
+            min: 0
+            max: 40
+            severity:
+              green: 20
+              yellow: 24
+              red: 27
+
+      # NEW: CO2 gauges (current values) for all rooms with CO2 sensors
       - type: markdown
-        content: '## Humidity Levels'
+        content: "## CO₂ — Current Levels"
       - type: grid
         columns: 4
         square: false
         cards:
-          - type: custom:mini-graph-card
-            entities:
-              - entity: sensor.living_room_station_humidity
-                name: Living Room
+          - type: gauge
+            name: Living Room CO₂
+            entity: sensor.living_room_station_carbon_dioxide
+            min: 400
+            max: 2000
+            severity:
+              green: 0
+              yellow: 1000
+              red: 1500
+          - type: gauge
+            name: Bedroom CO₂
+            entity: sensor.living_room_station_bedroom_carbon_dioxide
+            min: 400
+            max: 2000
+            severity:
+              green: 0
+              yellow: 1000
+              red: 1500
+          - type: gauge
+            name: Office CO₂
+            entity: sensor.living_room_station_office_carbon_dioxide
+            min: 400
+            max: 2000
+            severity:
+              green: 0
+              yellow: 1000
+              red: 1500
+          - type: gauge
+            name: "Hans' Room CO₂"
+            entity: sensor.living_room_station_hans_carbon_dioxide
+            min: 400
+            max: 2000
+            severity:
+              green: 0
+              yellow: 1000
+              red: 1500
+          # If your Bathroom has a CO2 sensor, uncomment and set the correct entity_id:
+          # - type: gauge
+          #   name: Bathroom CO₂
+          #   entity: sensor.temperature_humidity_sensor_bc03_co2
+          #   min: 400
+          #   max: 2000
+          #   severity:
+          #     green: 0
+          #     yellow: 1000
+          #     red: 1500
+
+      # Temperature trends (rooms + optional outdoor module for context)
+      - type: custom:mini-graph-card
+        name: Temperature Trends (24h)
+        hours_to_show: 24
+        points_per_hour: 4
+        line_width: 2
+        hour24: true
+        show:
+          legend: true
+          fill: false
+        entities:
+          - entity: sensor.living_room_station_temperature
             name: Living Room
-            line_color: '#3498db'
-            hours_to_show: 24
-          - type: custom:mini-graph-card
-            entities:
-              - entity: sensor.living_room_station_bedroom_humidity
-                name: Bedroom
+            color: "#3498db"
+          - entity: sensor.living_room_station_bedroom_temperature
             name: Bedroom
-            line_color: '#2ecc71'
-            hours_to_show: 24
-          - type: custom:mini-graph-card
-            entities:
-              - entity: sensor.living_room_station_office_humidity
-                name: Office
+            color: "#9b59b6"
+          - entity: sensor.living_room_station_office_temperature
             name: Office
-            line_color: '#e74c3c'
-            hours_to_show: 24
-          - type: custom:mini-graph-card
-            entities:
-              - entity: sensor.living_room_station_hans_humidity
-                name: Hans' Room
-            name: Hans' Room
-            line_color: '#f39c12'
-            hours_to_show: 24
+            color: "#e67e22"
+          - entity: sensor.living_room_station_hans_temperature
+            name: "Hans' Room"
+            color: "#e74c3c"
+          - entity: sensor.temperature_humidity_sensor_bc03_temperature
+            name: Bathroom
+            color: "#16a085"
+          - entity: sensor.living_room_station_outdoor_module_temperature
+            name: Outdoor (Module)
+            color: "#95a5a6"
+
+      # Humidity comparisons (merged into a single multi-series chart)
+      - type: custom:mini-graph-card
+        name: Humidity — 24h Comparison
+        hours_to_show: 24
+        points_per_hour: 4
+        line_width: 2
+        hour24: true
+        lower_bound: 0
+        upper_bound: 100
+        show:
+          legend: true
+          fill: false
+        entities:
+          - entity: sensor.living_room_station_humidity
+            name: Living Room
+            color: "#3498db"
+          - entity: sensor.living_room_station_bedroom_humidity
+            name: Bedroom
+            color: "#9b59b6"
+          - entity: sensor.living_room_station_office_humidity
+            name: Office
+            color: "#e67e22"
+          - entity: sensor.living_room_station_hans_humidity
+            name: "Hans' Room"
+            color: "#e74c3c"
+          - entity: sensor.temperature_humidity_sensor_bc03_humidity
+            name: Bathroom
+            color: "#16a085"
+
+      # CO2 over time (apexcharts for better line smoothing and legend)
       - type: custom:apexcharts-card
-        graph_span: 24h
         header:
           show: true
-          title: CO₂ Levels Over Time
+          title: CO₂ Levels Over Time (24h)
+          show_states: false
+          colorize_states: false
+        graph_span: 24h
+        now:
+          show: true
+        apex_config:
+          chart:
+            type: line
+          stroke:
+            width: 2
+            curve: smooth
+          legend:
+            show: true
         series:
           - entity: sensor.living_room_station_carbon_dioxide
             name: Living Room
+            color: "#3498db"
           - entity: sensor.living_room_station_bedroom_carbon_dioxide
             name: Bedroom
+            color: "#9b59b6"
           - entity: sensor.living_room_station_office_carbon_dioxide
             name: Office
+            color: "#e67e22"
           - entity: sensor.living_room_station_hans_carbon_dioxide
-            name: Hans' Room
+            name: "Hans' Room"
+            color: "#e74c3c"
+
+      # Additional indoor metrics
       - type: markdown
-        content: '## Additional Metrics'
+        content: "## Additional Indoor Metrics"
       - type: grid
         columns: 3
         square: false
@@ -126,32 +314,85 @@ views:
             entity: sensor.living_room_station_atmospheric_pressure
             name: Atmospheric Pressure
           - type: entity
+            entity: sensor.living_room_station_outdoor_module_temperature
+            name: Outdoor Temperature (Module)
+
+      # Bathroom details
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## Bathroom"
+          - type: entities
+            title: Temperature/Humidity Sensor BC03
+            entities:
+              - entity: sensor.temperature_humidity_sensor_bc03_temperature
+                name: Temperature
+              - entity: sensor.temperature_humidity_sensor_bc03_humidity
+                name: Humidity
+          - type: custom:mini-graph-card
+            name: Bathroom — 24h Trends
+            hours_to_show: 24
+            points_per_hour: 4
+            line_width: 2
+            hour24: true
+            show:
+              legend: true
+              fill: false
+            entities:
+              - entity: sensor.temperature_humidity_sensor_bc03_temperature
+                name: Temperature
+                color: "#16a085"
+              - entity: sensor.temperature_humidity_sensor_bc03_humidity
+                name: Humidity
+                color: "#2ecc71"
+
+  # =========================================================
+  # ================  OUTDOOR CONDITIONS  ===================
+  # =========================================================
+  - title: Outdoor
+    path: outdoor
+    icon: mdi:weather-partly-cloudy
+    cards:
+      - type: markdown
+        content: "## Forecast & Outdoor Sensors"
+
+      # Native weather forecast (different presentation than Overview)
+      - type: weather-forecast
+        entity: weather.openweathermap
+
+      # Key outdoor entities (mix OWM model + on-prem module)
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: entity
+            entity: sensor.openweathermap_temperature
+            name: OWM Temperature
+          - type: entity
+            entity: sensor.openweathermap_feels_like_temperature
+            name: Feels Like
+          - type: entity
+            entity: sensor.openweathermap_humidity
+            name: OWM Humidity
+          - type: entity
             entity: sensor.openweathermap_uv_index
             name: UV Index
           - type: entity
             entity: sensor.openweathermap_wind_speed
             name: Wind Speed
           - type: entity
-            entity: sensor.openweathermap_humidity
-            name: Outdoor Humidity
-          - type: entity
             entity: sensor.living_room_station_outdoor_module_temperature
-            name: Outdoor Temperature
-      - type: markdown
-        content: '## Outdoor Conditions'
-      - type: grid
-        columns: 2
-        square: false
-        cards:
-          - type: entity
-            entity: sensor.openweathermap_temperature
-            name: Temperature
-          - type: entity
-            entity: sensor.openweathermap_feels_like_temperature
-            name: Feels Like
+            name: Outdoor Temperature (Module)
+
+      # Rain and Wind details from Netatmo
       - type: entities
+        title: Rain & Wind (Station)
         entities:
           - entity: sensor.living_room_station_rain_gauge_precipitation
+            name: Rain (Last Hour)
           - entity: sensor.living_room_station_rain_gauge_precipitation_today
+            name: Rain (Today)
           - entity: sensor.living_room_station_smart_anemometer_wind_speed
+            name: Wind Speed
           - entity: sensor.living_room_station_smart_anemometer_wind_direction
+            name: Wind Direction (°)

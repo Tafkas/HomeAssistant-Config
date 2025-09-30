@@ -4,7 +4,9 @@ views:
     path: system
     icon: mdi:desktop-tower-monitor
     cards:
-      - type: horizontal-stack
+      - type: grid
+        columns: 2
+        square: false
         cards:
           - type: gauge
             name: CPU Usage
@@ -13,43 +15,21 @@ views:
             max: 100
             severity:
               green: 0
-              yellow: 50
-              red: 80
+              yellow: 60
+              red: 85
+
           - type: gauge
             name: Memory Usage
-            entity: sensor.system_monitor_memory_use
+            entity: sensor.system_monitor_memory_usage
             min: 0
             max: 100
             severity:
               green: 0
               yellow: 70
               red: 90
-      - type: horizontal-stack
-        cards:
-          - type: entity
-            name: CPU Temperature
-            entity: sensor.system_monitor_processor_temperature
-            icon: mdi:thermometer
-          - type: entity
-            name: Free Memory
-            entity: sensor.system_monitor_memory_free
-            icon: mdi:memory
-      - type: glance
-        title: System Load
-        entities:
-          - entity: sensor.system_monitor_load_1m
-            name: 1m Load
-            icon: mdi:chip
-          - entity: sensor.system_monitor_load_5m
-            name: 5m Load
-            icon: mdi:chip
-          - entity: sensor.system_monitor_load_15m
-            name: 15m Load
-            icon: mdi:chip
-      - type: horizontal-stack
-        cards:
+
           - type: gauge
-            name: Disk Usage
+            name: Disk Usage (/)
             entity: sensor.system_monitor_disk_usage
             min: 0
             max: 100
@@ -57,14 +37,57 @@ views:
               green: 0
               yellow: 70
               red: 90
-          - type: entity
+
+          - type: glance
+            title: System Load
+            entities:
+              - entity: sensor.system_monitor_load_1m
+                name: 1m Load
+                icon: mdi:chip
+              - entity: sensor.system_monitor_load_5m
+                name: 5m Load
+                icon: mdi:chip
+              - entity: sensor.system_monitor_load_15m
+                name: 15m Load
+                icon: mdi:chip
+
+      - type: entities
+        title: System Stats
+        show_header_toggle: false
+        entities:
+          - entity: sensor.system_monitor_memory_free
+            name: Free Memory
+            icon: mdi:memory
+            secondary_info: last-changed
+          - entity: sensor.system_monitor_disk_free
             name: Free Disk Space
-            entity: sensor.system_monitor_disk_free
             icon: mdi:harddisk
+            secondary_info: last-changed
+
+      - type: conditional
+        conditions:
+          - entity: sensor.system_monitor_processor_temperature
+            state_not: unavailable
+          - entity: sensor.system_monitor_processor_temperature
+            state_not: unknown
+        card:
+          type: entity
+          name: CPU Temperature
+          entity: sensor.system_monitor_processor_temperature
+          icon: mdi:thermometer
+
+      - type: history-graph
+        title: 24h Trend
+        hours_to_show: 24
+        entities:
+          - sensor.system_monitor_processor_use
+          - sensor.system_monitor_memory_usage
+          - sensor.system_monitor_disk_usage
+
       - type: entity-filter
         entities:
           - entity: sensor.system_monitor_processor_use
-          - entity: sensor.system_monitor_memory_use
+          - entity: sensor.system_monitor_memory_usage
           - entity: sensor.system_monitor_disk_usage
         state_filter:
           - operator: '>'
