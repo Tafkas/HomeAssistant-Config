@@ -19,7 +19,7 @@ views:
           # HEADER / STATUS
           # ================
           - type: grid
-            columns: 4
+            columns: 3
             square: false
             cards:
               # Weather summary (impact on solar)
@@ -83,6 +83,8 @@ views:
                   green: -5000   # Export
                   yellow: -300
                   red: 0         # Import
+                hold_action:
+                  action: more-info
 
               # Surplus Export (W)
               - type: gauge
@@ -95,6 +97,8 @@ views:
                   green: 200
                   yellow: 50
                   red: 0
+                hold_action:
+                  action: more-info
 
               # Daily Solar Production (kWh)
               - type: gauge
@@ -107,8 +111,10 @@ views:
                   green: 15
                   yellow: 5
                   red: 0
+                hold_action:
+                  action: more-info
 
-          # Daily/Weekly energy generation & grid exchange
+          # Daily/Weekly energy generation & grid exchange (diverging columns)
           - type: custom:apexcharts-card
             header:
               show: true
@@ -119,32 +125,45 @@ views:
             span:
               start: day
             apex_config:
+              chart:
+                stacked: false
+              dataLabels:
+                enabled: false
+              xaxis:
+                labels:
+                  datetimeFormatter:
+                    day: 'dd MMM'
               yaxis:
-                - decimalsInFloat: 2
+                - min: -40
+                  max: 40
+                  decimalsInFloat: 1
                   title:
                     text: kWh
+                  labels:
+                    formatter: "function(val){return Math.abs(val) + ' kWh';}"
             series:
-              # Show daily totals as columns; uses long-term statistics
               - entity: sensor.daily_solar_production
                 name: Solar
                 type: column
                 group_by:
-                  func: max
                   duration: 1d
+                  func: max
+                color: '#FDD835'
               - entity: sensor.daily_grid_import
                 name: Grid Import
                 type: column
-                color: '#E53935'
                 group_by:
-                  func: max
                   duration: 1d
+                  func: max
+                color: '#E53935'
               - entity: sensor.daily_grid_export
                 name: Grid Export
                 type: column
-                color: '#43A047'
                 group_by:
-                  func: max
                   duration: 1d
+                  func: max
+                color: '#43A047'
+                transform: 'return x * -1;'
             # Fallback (core):
             # - type: statistics-graph
             #   title: Solar & Grid (Last 7 days)
@@ -186,7 +205,7 @@ views:
             cards:
               # MAIN CONTROL: E‑Bike charger outlet switch
               - type: custom:mushroom-entity-card
-                entity: switch.shellyplusplugs_d4d4da363900  # <-- CHANGE if your e‑bike charger uses another plug
+                entity: switch.shellyplugsg3_28372f2f1e04  # <-- Confirm your e‑bike charger switch entity
                 name: E‑Bike Charger Outlet
                 icon: mdi:bike-fast
                 layout: vertical
@@ -196,7 +215,7 @@ views:
 
               # Charging power (W) with dynamic color
               - type: custom:mushroom-template-card
-                entity: sensor.shellyplugsg3_28372f2f1e04_power  # <-- CHANGE if needed
+                entity: sensor.shellyplugsg3_28372f2f1e04_power  # <-- E‑bike charger power
                 primary: Charger Power
                 secondary: >
                   {{ states('sensor.shellyplugsg3_28372f2f1e04_power')|float(0)|round(0) }} W
@@ -255,7 +274,7 @@ views:
                       action: call-service
                       service: switch.turn_on
                       target:
-                        entity_id: switch.shellyplusplugs_d4d4da363900
+                        entity_id: switch.shellyplugsg3_28372f2f1e04
                   - type: action
                     icon: mdi:stop
                     content: Stop
@@ -263,7 +282,7 @@ views:
                       action: call-service
                       service: switch.turn_off
                       target:
-                        entity_id: switch.shellyplusplugs_d4d4da363900
+                        entity_id: switch.shellyplugsg3_28372f2f1e04
                   - type: action
                     icon: mdi:lightning-bolt
                     content: Solar Only
@@ -371,10 +390,10 @@ views:
               - type: template
                 icon: mdi:bike
                 icon_color: >
-                  {% set p = states('sensor.shellyplusplugs_d4d4da363900_power')|float(0) %}
+                  {% set p = states('sensor.shellyplugsg3_28372f2f1e04_power')|float(0) %}
                   {{ 'green' if p > 50 else 'grey' }}
                 content: >
-                  E‑Bike {{ (states('sensor.shellyplusplugs_d4d4da363900_power')|float(0))|round(0) }} W
+                  E‑Bike {{ (states('sensor.shellyplugsg3_28372f2f1e04_power')|float(0))|round(0) }} W
               - type: template
                 icon: mdi:home-export-outline
                 icon_color: green
@@ -402,16 +421,26 @@ views:
             graph_span: 24h
             apex_config:
               yaxis:
-                - title:
+                - min: 0
+                  decimalsInFloat: 0
+                  title:
                     text: W
+              stroke:
+                curve: smooth
+              annotations:
+                xaxis:
+                  - x: 'now'
+                    borderColor: '#888'
+                    label:
+                      text: 'Now'
             series:
-              - entity: sensor.shellyplusplugs_d4d4da363900_power  # <-- CHANGE if needed
+              - entity: sensor.shellyplugsg3_28372f2f1e04_power
                 name: Charger Power
                 type: line
-                stroke_width: 2
                 group_by:
-                  func: avg
                   duration: 5min
+                  func: avg
+                stroke_width: 2
 
           # Historical charging minutes (daily trend)
           - type: statistics-graph
@@ -464,10 +493,10 @@ views:
 # --------------------
 # 1) E‑Bike Charger Entities:
 #    Replace these if your charger plug differs:
-#      - switch.shellyplusplugs_d4d4da363900
-#      - sensor.shellyplusplugs_d4d4da363900_power
+#      - switch.shellyplugsg3_28372f2f1e04
+#      - sensor.shellyplugsg3_28372f2f1e04_power
 #    Candidate alternatives in your system:
-#      - switch.shellyplugsg3_28372f2f1e04 / sensor.shellyplugsg3_28372f2f1e04_power
+#      - switch.shellyplusplugs_d4d4da363900 / sensor.shellyplusplugs_d4d4da363900_power
 #      - switch.smart_plug_1908218495823925185548e1e9023052_outlet / sensor.smart_plug_1908218495823925185548e1e9023052_power
 #      - switch.smart_plug_1908212877531725185548e1e90233ca_outlet / sensor.smart_plug_1908212877531725185548e1e90233ca_power
 #
