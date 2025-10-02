@@ -174,26 +174,80 @@
         entity_id: input_boolean.dishwasher_running
   mode: single
 
-- id: laundry_finished
-  alias: Laundry finished
-  description: Notification when laundry finishes after a cycle
+
+- id: laundry_started_power_based
+  alias: Laundry started
+  description: Mark laundry as running when power indicates the cycle has begun
   triggers:
     - trigger: numeric_state
       entity_id: sensor.smart_plug_19011801871415251h0334298f1a2070_power
-      below: 10
-      for: 00:01:00
+      above: 20
+      for:
+        minutes: 2
   conditions:
     - condition: state
       entity_id: input_boolean.laundry_running
-      state: 'on'
+      state: "off"
   actions:
-    - action: notify.notify
-      data:
-        message: Laundry is ready!
-    - action: input_boolean.turn_off
+    - action: input_boolean.turn_on
       target:
         entity_id: input_boolean.laundry_running
   mode: single
+
+- id: laundry_finished_power_based
+  alias: Laundry finished
+
+  description: Notify when laundry finishes after power stays low and machine had been running
+
+  # Improvements:
+  # - Increased "for" to 3 minutes to avoid mid-cycle dips
+  # - Ensure the drop was from a higher "running" level (>20 W) to reduce false positives
+  # - Ensure the power sensor is available
+  # - Added a clearer notification message with finish time
+  # - Retained your boolean gate to confirm the machine was running
+
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.smart_plug_19011801871415251h0334298f1a2070_power  # Consider renaming to sensor.washer_power
+      below: 10          # End threshold (tune for your washer/plug)
+      for:
+        minutes: 3       # Increased from 1 → fewer false positives
+
+  conditions:
+    # Only if we marked the cycle as running
+    - condition: state
+      entity_id: input_boolean.laundry_running
+      state: "on"
+
+    # Guard: only proceed if this low-power state was reached from a clearly "running" level.
+    # This avoids false positives on startup or minor idle fluctuations.
+    - condition: template
+      alias: Only trigger on downward crossing from running power
+      value_template: >
+        {{ trigger is defined
+           and trigger.from_state is not none
+           and (trigger.from_state.state | float(0)) > 20 }}
+
+    # Guard: ensure the power sensor is reporting a valid value now
+    - condition: template
+      alias: Power sensor available
+      value_template: >
+        {{ states('sensor.smart_plug_19011801871415251h0334298f1a2070_power') not in ['unknown', 'unavailable', 'none'] }}
+
+  actions:
+    - action: notify.notify
+      data:
+        title: Laundry
+        message: >
+          Laundry is ready! Power has been below 10 W for 3 minutes.
+          Finished at {{ now().strftime('%H:%M') }}.
+
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.laundry_running
+
+  mode: single
+  # mode single is fine here; the boolean gate prevents repeat notifications.
 
 - id: daily_energy_report_1059pm
   alias: Daily Energy Report
