@@ -196,13 +196,13 @@ views:
 
               # Charging power (W) with dynamic color
               - type: custom:mushroom-template-card
-                entity: sensor.shellyplusplugs_d4d4da363900_power  # <-- CHANGE if needed
+                entity: sensor.shellyplugsg3_28372f2f1e04_power  # <-- CHANGE if needed
                 primary: Charger Power
                 secondary: >
-                  {{ states('sensor.shellyplusplugs_d4d4da363900_power')|float(0)|round(0) }} W
+                  {{ states('sensor.shellyplugsg3_28372f2f1e04_power')|float(0)|round(0) }} W
                 icon: mdi:flash
                 icon_color: >
-                  {{ 'green' if (states('sensor.shellyplusplugs_d4d4da363900_power')|float(0)) > 50 else 'grey' }}
+                  {{ 'green' if (states('sensor.shellyplugsg3_28372f2f1e04_power')|float(0)) > 50 else 'grey' }}
                 layout: vertical
 
               # Charging energy today (kWh)
@@ -319,22 +319,28 @@ views:
               {% set p_now = states('sensor.solcast_pv_forecast_power_now')|float(0) %}
               {% set p_30 = states('sensor.solcast_pv_forecast_power_in_30_minutes')|float(0) %}
               {% set p_60 = states('sensor.solcast_pv_forecast_power_in_1_hour')|float(0) %}
-              {% set peak_today = states('sensor.solcast_pv_forecast_peak_time_today') %}
-              {% set peak_tmrrw = states('sensor.solcast_pv_forecast_peak_time_tomorrow') %}
-              {% set peak_today_fmt = peak_today and as_datetime(peak_today)|as_local|strftime('%H:%M') %}
-              {% set peak_tmrrw_fmt = peak_tmrrw and as_datetime(peak_tmrrw)|as_local|strftime('%H:%M') %}
+
+              {# Robust formatting for peak times using filters only #}
+              {% set pt_raw = states('sensor.solcast_pv_forecast_peak_time_today') %}
+              {% set pt_ts = as_timestamp(pt_raw) %}
+              {% set peak_today_fmt = (pt_ts | timestamp_custom('%H:%M', true)) if pt_ts is number else none %}
+
+              {% set pm_raw = states('sensor.solcast_pv_forecast_peak_time_tomorrow') %}
+              {% set pm_ts = as_timestamp(pm_raw) %}
+              {% set peak_tmrrw_fmt = (pm_ts | timestamp_custom('%H:%M', true)) if pm_ts is number else none %}
+
               {% if surplus >= thr %}
-              ✅ Start charging now: Surplus {{ surplus|round(0) }} W ≥ threshold {{ thr|round(0) }} W.
+                ✅ Start charging now: Surplus {{ surplus|round(0) }} W ≥ threshold {{ thr|round(0) }} W.
               {% elif p_30 >= thr %}
-              ⏳ Consider starting in ~30 min (forecast {{ p_30|round(0) }} W ≥ {{ thr|round(0) }} W).
+                ⏳ Consider starting in ~30 min (forecast {{ p_30|round(0) }} W ≥ {{ thr|round(0) }} W).
               {% elif p_60 >= thr %}
-              ⏳ Consider starting in ~60 min (forecast {{ p_60|round(0) }} W ≥ {{ thr|round(0) }} W).
+                ⏳ Consider starting in ~60 min (forecast {{ p_60|round(0) }} W ≥ {{ thr|round(0) }} W).
               {% elif peak_today_fmt %}
-              📈 Target around today's peak at {{ peak_today_fmt }}.
+                📈 Target around today's peak at {{ peak_today_fmt }}.
               {% elif peak_tmrrw_fmt %}
-              📈 Low output today. Target tomorrow around {{ peak_tmrrw_fmt }}.
+                📈 Low output today. Target tomorrow around {{ peak_tmrrw_fmt }}.
               {% else %}
-              ℹ️ Awaiting sufficient solar or use Off‑Peak Backup if needed.
+                ℹ️ Awaiting sufficient solar or use Off‑Peak Backup if needed.
               {% endif %}
               <br><small>Tip: Adjust thresholds/dwell in "Charging Status & Targets" to tune behavior.</small>
 
