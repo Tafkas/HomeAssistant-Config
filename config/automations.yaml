@@ -823,3 +823,56 @@
             entity_id: input_select.ebike_charge_state
           data:
             option: idle
+
+# Home Assistant Automation: Scan NFC tag to run Shelly Plug for 1 hour, then turn off and notify
+# - Trigger: Scan the specified RFID/NFC tag via the HA Companion App
+# - Actions:
+#   1) Turn on switch.shellyplugsg3_28372f2f1e04
+#   2) Wait exactly 1 hour
+#   3) If the switch is still on, turn it off and send a notification to your phone
+#
+# Notes:
+# - mode: restart means re-scanning the tag during the hour restarts the 1-hour timer.
+# - The notification is only sent if the automation turns the switch off after 1 hour.
+# - If you want to restrict scans to a specific phone, uncomment device_id and set it to your phone’s device id.
+# - Place in automations.yaml or create via UI (Settings > Automations & Scenes > Add Automation > Edit in YAML).
+#
+# Optional references:
+# - Tags: https://www.home-assistant.io/integrations/tag/
+# - Companion App NFC: https://companion.home-assistant.io/docs/integrations/nfc/
+
+- id: rfid_shellyplug_one_hour
+  alias: RFID – Run Shelly Plug for 1 hour and notify
+  description: Scan NFC tag to run plug for 1 hour, then turn off and notify
+  mode: restart
+  trigger:
+    - platform: tag
+      tag_id: "efffef5f-db7b-4ecc-800f-c41896c17f5f"
+  condition: []
+  action:
+    - service: switch.turn_on
+      target:
+        entity_id: switch.shellyplugsg3_28372f2f1e04
+
+    - delay: "01:00:00"
+
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: switch.shellyplugsg3_28372f2f1e04
+              state: "on"
+          sequence:
+            - service: switch.turn_off
+              target:
+                entity_id: switch.shellyplugsg3_28372f2f1e04
+
+            # Wait up to 30s for the state to reflect 'off' before notifying.
+            # If it doesn't turn off within 30s, the script stops and no notification is sent.
+            - wait_template: "{{ is_state('switch.shellyplugsg3_28372f2f1e04', 'off') }}"
+              timeout: "00:00:30"
+              continue_on_timeout: false
+
+            - service: notify.mobile_app_iphone_12_pro
+              data:
+                title: Shelly Plug auto-off
+                message: "{{ state_attr('switch.shellyplugsg3_28372f2f1e04', 'friendly_name') or 'Shelly Plug S (E-Bike)' }} was automatically turned off after 1 hour."
