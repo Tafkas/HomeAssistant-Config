@@ -155,77 +155,69 @@
 
 - id: dishwasher_started_power_based
   alias: Dishwasher started
-
   description: Mark dishwasher as running when power indicates a cycle has started
-  triggers:
-    - trigger: numeric_state
+  trigger:
+    - platform: numeric_state
       entity_id: sensor.smart_plug_1908212877531725185548e1e90233ca_power
-      above: 20             # Tune: many dishwashers draw > 1000 W when heating; even 20–50 W is a good "running" indicator
+      above: 20
       for:
         minutes: 2
-  conditions:
+  condition:
     - condition: state
       entity_id: input_boolean.dishwasher_running
       state: "off"
-  actions:
-    - action: input_boolean.turn_on
+  action:
+    - service: input_boolean.turn_on
       target:
         entity_id: input_boolean.dishwasher_running
   mode: single
 
 - id: dishwasher_finished_power_based
   alias: Dishwasher finished
-
   description: Notify when dishwasher finishes after sustained low power and it had been running
-
-  # Improvements:
-  # - Increased "for" and slightly raised the end threshold for stability
-  # - Guarded against unavailable/unknown sensor states
-  # - Optional guard to ensure low power followed a running level
-  # - Clearer notification contents
-
-  triggers:
-    - trigger: numeric_state
-      entity_id: sensor.smart_plug_1908212877531725185548e1e90233ca_power  # Consider renaming to sensor.dishwasher_power
-      below: 2               # End threshold; many dishwashers idle around 0–2 W. Tune to your plug.
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.smart_plug_1908212877531725185548e1e90233ca_power
+      below: 3        # Adjust to 3–5 W if your plug idles higher
       for:
-        minutes: 7           # Longer window to avoid mid-cycle pauses
-
-  conditions:
-    # Only if we had marked the cycle as running
+        minutes: 7
+  condition:
     - condition: state
       entity_id: input_boolean.dishwasher_running
       state: "on"
-
-    # Guard: sensor must be providing a valid numeric reading
-    - condition: template
-      alias: Power sensor available
-      value_template: >
-        {{ states('sensor.smart_plug_1908212877531725185548e1e90233ca_power') not in ['unknown','unavailable','none'] }}
-
-    # Optional guard: only proceed if low power followed a clearly running level (>15 W).
-    # Note: If your plug sends multiple updates while below threshold, this may sometimes not pass.
-    - condition: template
-      alias: Low power followed running power
-      value_template: >
-        {{ trigger is defined
-           and trigger.from_state is not none
-           and (trigger.from_state.state | float(0)) > 15 }}
-
-  actions:
-    - action: notify.notify
+  action:
+    - service: notify.notify
       data:
         title: Dishwasher
-        message: >
-          Dishwasher is ready! Power has been below 2 W for 7 minutes.
-          Finished at {{ now().strftime('%H:%M') }}.
-
-    - action: input_boolean.turn_off
+        message: Dishwasher is ready! Power has been below 3 W for 7 minutes. Finished at {{ now().strftime('%H:%M') }}.
+    - service: persistent_notification.create
+      data:
+        title: Dishwasher
+        message: Finished at {{ now().strftime('%H:%M') }}
+        notification_id: dishwasher_finished
+    - service: input_boolean.turn_off
       target:
         entity_id: input_boolean.dishwasher_running
-
   mode: single
 
+- id: dishwasher_reset_stuck_boolean
+  alias: Dishwasher boolean watchdog
+  description: Ensures input_boolean is reset if power stays low for a long time
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.smart_plug_1908212877531725185548e1e90233ca_power
+      below: 3
+      for:
+        minutes: 30
+  condition:
+    - condition: state
+      entity_id: input_boolean.dishwasher_running
+      state: "on"
+  action:
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.dishwasher_running
+  mode: single
 
 - id: laundry_started_power_based
   alias: Laundry started
