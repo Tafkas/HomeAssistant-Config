@@ -85,7 +85,24 @@ template:
         state: "{{ (states('sensor.roborock_qrevo_pro_dock_mop_drying_remaining_time') | float(0) / 3600) | round(1) }}"
         icon: mdi:water-boiler
 
-  - sensor:
+      - name: "Dishwasher phase"
+        unique_id: dishwasher_phase
+        state: >
+          {% set p = states('sensor.smart_plug_1908212877531725185548e1e90233ca_power') | float(0) %}
+          {% if p < 3.5 %} idle
+          {% elif p < 10 %} standby
+          {% elif p < 25 %} prewash/soak
+          {% elif p >= 1000 %} heating
+          {% else %} wash/rinse
+          {% endif %}
+        icon: >
+          {% set p = states('sensor.smart_plug_1908212877531725185548e1e90233ca_power') | float(0) %}
+          {% if p >= 1000 %} mdi:fire
+          {% elif p >= 25 %} mdi:dishwasher
+          {% elif p >= 10 %} mdi:progress-clock
+          {% else %} mdi:sleep
+          {% endif %}
+
       - name: "Excess Solar Export"
         unique_id: excess_solar_export_w
         unit_of_measurement: "W"
@@ -98,7 +115,6 @@ template:
           {% set p = states('sensor.shellypro3em_08f9e0e88160_total_active_power') | float(0) %}
           {{ (-p if p < 0 else 0) | round(0) }}
 
-  - sensor:
       - name: "Ebike Charging Minutes Today"
         unique_id: ebike_charging_minutes_today
         unit_of_measurement: "min"
@@ -106,7 +122,6 @@ template:
         state: >-
           {{ (states('sensor.ebike_charging_hours_today_raw') | float(0) * 60) | round(0) }}
 
-  - sensor:
       - name: "Ebike Estimated Energy Today"
         unique_id: ebike_est_energy_today_wh
         unit_of_measurement: "Wh"

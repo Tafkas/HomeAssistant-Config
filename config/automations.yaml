@@ -154,14 +154,14 @@
 
 
 - id: dishwasher_started_power_based
-  alias: Dishwasher started
+  alias: Dishwasher started (power-based)
   description: Mark dishwasher as running when power indicates a cycle has started
   trigger:
     - platform: numeric_state
       entity_id: sensor.smart_plug_1908212877531725185548e1e90233ca_power
-      above: 20
+      above: 25
       for:
-        minutes: 2
+        minutes: 3
   condition:
     - condition: state
       entity_id: input_boolean.dishwasher_running
@@ -170,45 +170,51 @@
     - service: input_boolean.turn_on
       target:
         entity_id: input_boolean.dishwasher_running
+    - service: logbook.log
+      data:
+        name: Dishwasher
+        message: "Cycle detected as started (power > 25 W for 3 min)."
   mode: single
 
 - id: dishwasher_finished_power_based
-  alias: Dishwasher finished
+  alias: Dishwasher finished (power-based)
   description: Notify when dishwasher finishes after sustained low power and it had been running
   trigger:
     - platform: numeric_state
       entity_id: sensor.smart_plug_1908212877531725185548e1e90233ca_power
-      below: 3        # Adjust to 3–5 W if your plug idles higher
+      below: 10
       for:
-        minutes: 7
+        minutes: 10
   condition:
     - condition: state
       entity_id: input_boolean.dishwasher_running
       state: "on"
   action:
+    - variables:
+        end_time: "{{ now().strftime('%H:%M') }}"
     - service: notify.notify
       data:
         title: Dishwasher
-        message: Dishwasher is ready! Power has been below 3 W for 7 minutes. Finished at {{ now().strftime('%H:%M') }}.
+        message: "Dishwasher is ready! Power below 10 W for 10 min. Finished at {{ end_time }}."
     - service: persistent_notification.create
       data:
         title: Dishwasher
-        message: Finished at {{ now().strftime('%H:%M') }}
+        message: "Finished at {{ end_time }}"
         notification_id: dishwasher_finished
     - service: input_boolean.turn_off
       target:
         entity_id: input_boolean.dishwasher_running
   mode: single
 
-- id: dishwasher_reset_stuck_boolean
-  alias: Dishwasher boolean watchdog
+- id: dishwasher_reset_failsafe
+  alias: Dishwasher running failsafe reset
   description: Ensures input_boolean is reset if power stays low for a long time
   trigger:
     - platform: numeric_state
       entity_id: sensor.smart_plug_1908212877531725185548e1e90233ca_power
-      below: 3
+      below: 10
       for:
-        minutes: 30
+        minutes: 45
   condition:
     - condition: state
       entity_id: input_boolean.dishwasher_running
@@ -217,6 +223,34 @@
     - service: input_boolean.turn_off
       target:
         entity_id: input_boolean.dishwasher_running
+    - service: logbook.log
+      data:
+        name: Dishwasher
+        message: "Failsafe reset: low power (<10 W) for 45 min."
+  mode: single
+
+# Optional: mark running again after HA restart if a cycle is in progress
+- id: dishwasher_startup_recover_running
+  alias: Dishwasher startup recovery
+  trigger:
+    - platform: homeassistant
+      event: start
+  condition: [ ]
+  action:
+    - delay: "00:02:00"  # allow sensor to stabilize
+    - condition: numeric_state
+      entity_id: sensor.smart_plug_1908212877531725185548e1e90233ca_power
+      above: 25
+    - condition: state
+      entity_id: input_boolean.dishwasher_running
+      state: "off"
+    - service: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.dishwasher_running
+    - service: logbook.log
+      data:
+        name: Dishwasher
+        message: "Recovered running state after HA restart (power > 25 W)."
   mode: single
 
 - id: laundry_started_power_based
@@ -848,7 +882,7 @@
   trigger:
     - platform: tag
       tag_id: "efffef5f-db7b-4ecc-800f-c41896c17f5f"
-  condition: []
+  condition: [ ]
   action:
     - service: switch.turn_on
       target:
