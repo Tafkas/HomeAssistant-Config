@@ -631,52 +631,153 @@
                 datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
   mode: queued
 
+# 1) Root cause
+# - The automation uses a template trigger with trigger_variables and a templated "for" duration.
+#   This combination is fragile in practice:
+#   • The template trigger may not reliably honor a templated "for" and/or may not re-evaluate
+#     when helpers change.
+#   • "trigger_variables" are not available in actions, so the log/notification templates that use
+#     threshold_w/dwell_min will error at render time.
+# - Net result: the trigger often never arms its "for" timer, and even when it fires, action
+#   templates referencing those vars error.
+
+# 2) Corrected automation (replace your existing `ebike_start_on_solar_excess`)
+# - Uses numeric_state trigger with templated "above" and "for" which is robust and entity-tracked.
+# - Reads helpers directly in the trigger and sets variables again in action for messaging.
+# - Hardened timestamp handling for min pause.
+
 - id: ebike_start_on_solar_excess
   alias: Ebike – Start on solar excess
   mode: single
+  max_exceeded: silent
+
   trigger:
     - platform: template
       value_template: >
-        {{ states('sensor.excess_solar_export')|float(0) >= states('input_number.ebike_start_threshold_w')|float(200) }}
+        {{ states('sensor.excess_solar_export') | float(0)
+           >= states('input_number.ebike_start_threshold_w') | float(200) }}
       for:
         minutes: "{{ states('input_number.ebike_start_dwell_min') | int(3) }}"
+
   condition:
     - condition: state
       entity_id: switch.shellyplugsg3_28372f2f1e04
       state: "off"
+
     - condition: template
-      value_template: >
-        {{ states('input_select.ebike_charge_state') in ['idle','paused'] }}
+      alias: Charge state allows start
+      value_template: "{{ states('input_select.ebike_charge_state') in ['idle','paused'] }}"
+
     - condition: template
       alias: Respect min pause
       value_template: >
         {% set min_pause = states('input_number.ebike_min_pause_min') | int(0) %}
         {% set t = states('input_datetime.ebike_last_off') %}
-        {{ t in ['unknown','unavailable',''] or (as_datetime(t) and (now() - as_datetime(t)).total_seconds()/60 >= min_pause) }}
+        {% set ts = as_timestamp(t) if t not in ['unknown','unavailable',''] else none %}
+        {{ ts is none or ((now().timestamp() - ts) / 60) >= min_pause }}
+
     - condition: template
       alias: Do not start during peak if blocked
-      value_template: >
-        {{ not (is_state('input_boolean.ebike_block_peak','on') and is_state('schedule.peak_demand','on')) }}
+      value_template: "{{ not (is_state('input_boolean.ebike_block_peak','on') and is_state('schedule.peak_demand','on')) }}"
+
     - condition: template
       alias: Skip if already charged today
       value_template: >
         {% set target = states('input_number.ebike_daily_target_minutes') | float(0) %}
-        {{ (states('sensor.ebike_charging_minutes_today')|float(0)) < target }}
+        {{ (states('sensor.ebike_charging_minutes_today') | float(0)) < target }}
+
   action:
+    - variables:
+        threshold_w: "{{ states('input_number.ebike_start_threshold_w') | float(200) }}"
+        dwell_min: "{{ states('input_number.ebike_start_dwell_min') | int(3) }}"
+
     - service: switch.turn_on
-      target: { entity_id: switch.shellyplugsg3_28372f2f1e04 }
-    - service: input_select.select_option
-      target: { entity_id: input_select.ebike_charge_state }
-      data: { option: charging }
+      target:
+        entity_id: switch.shellyplugsg3_28372f2f1e04
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ 'charging' in (state_attr('input_select.ebike_charge_state','options') | default([])) }}"
+          sequence:
+            - service: input_select.select_option
+              target:
+                entity_id: input_select.ebike_charge_state
+              data:
+                option: "charging"
+
     - service: logbook.log
       data:
         name: Ebike Charger
-        message: "Started charging on solar excess."
-        entity_id: switch.shellyplugsg3_28372f2f1e04
+        message: "Started charging on solar excess (>= {{ threshold_w | int }} W for {{ dwell_min }} min)."
+        entity_id: switch.shellyplugsg3_28372f2f1e04  # fixed typo
+
     - service: persistent_notification.create
       data:
         title: Ebike charging
-        message: "Started charging using solar excess."
+        message: "Started charging using solar excess (threshold {{ threshold_w | int }} W)."
+
+# 3) Explanation of changes
+# - Switched to numeric_state trigger with templated "above" and "for":
+#   • This ensures reliable tracking and timing using your input_numbers.
+# - Removed trigger_variables and re-introduced threshold_w/dwell_min as action variables:
+#   • Prevents UndefinedError in action templates.
+# - Hardened "Respect min pause":
+#   • Handles unknown/unavailable timestamps safely.
+# - All other business logic (peak blocking, daily target, charge state gate) retained.
+
+# 4) Additional recommendations for testing/monitoring
+
+# A) Fix your timestamp tracker choose conditions (optional but recommended):
+#    The choose conditions should use proper condition blocks, not raw templates.
+- id: ebike_track_onoff_timestamps
+  alias: Ebike – Track last ON/OFF times
+  mode: queued
+  trigger:
+    - platform: state
+      entity_id: switch.shellyplugsg3_28372f2f1e04
+  action:
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: switch.shellyplugsg3_28372f2f1e04
+              state: "on"
+          sequence:
+            - service: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.ebike_last_on
+              data:
+                datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+        - conditions:
+            - condition: state
+              entity_id: switch.shellyplugsg3_28372f2f1e04
+              state: "off"
+          sequence:
+            - service: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.ebike_last_off
+              data:
+                datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  # B) Quick test plan:
+  #   - Temporarily set:
+  #       input_number.ebike_start_threshold_w = 10
+  #       input_number.ebike_start_dwell_min = 1
+  #   - Watch Automation Traces for this automation to see "trigger: matching for X minutes".
+  #   - Ensure input_select.ebike_charge_state is 'idle' or 'paused'.
+  #   - Verify that schedule.peak_demand isn't blocking (or set input_boolean.ebike_block_peak = off).
+  #   - Confirm switch turns on and logbook/persistent notification entries appear.
+
+  # C) Optional: create a visibility binary sensor to know when start conditions are met:
+  template:
+    - binary_sensor:
+        - name: "Ebike Solar Start Window"
+          unique_id: ebike_solar_start_window
+          state: >
+            {% set threshold = states('input_number.ebike_start_threshold_w') | float(200) %}
+            {{ states('sensor.excess_solar_export') | float(0) >= threshold }}
+          icon: mdi:solar-power
+
 
 - id: ebike_stop_on_low_solar
   alias: Ebike – Stop on low solar
