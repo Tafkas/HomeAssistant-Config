@@ -631,21 +631,6 @@
                 datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
   mode: queued
 
-# 1) Root cause
-# - The automation uses a template trigger with trigger_variables and a templated "for" duration.
-#   This combination is fragile in practice:
-#   • The template trigger may not reliably honor a templated "for" and/or may not re-evaluate
-#     when helpers change.
-#   • "trigger_variables" are not available in actions, so the log/notification templates that use
-#     threshold_w/dwell_min will error at render time.
-# - Net result: the trigger often never arms its "for" timer, and even when it fires, action
-#   templates referencing those vars error.
-
-# 2) Corrected automation (replace your existing `ebike_start_on_solar_excess`)
-# - Uses numeric_state trigger with templated "above" and "for" which is robust and entity-tracked.
-# - Reads helpers directly in the trigger and sets variables again in action for messaging.
-# - Hardened timestamp handling for min pause.
-
 - id: ebike_start_on_solar_excess
   alias: Ebike – Start on solar excess
   mode: single
@@ -717,19 +702,6 @@
         title: Ebike charging
         message: "Started charging using solar excess (threshold {{ threshold_w | int }} W)."
 
-# 3) Explanation of changes
-# - Switched to numeric_state trigger with templated "above" and "for":
-#   • This ensures reliable tracking and timing using your input_numbers.
-# - Removed trigger_variables and re-introduced threshold_w/dwell_min as action variables:
-#   • Prevents UndefinedError in action templates.
-# - Hardened "Respect min pause":
-#   • Handles unknown/unavailable timestamps safely.
-# - All other business logic (peak blocking, daily target, charge state gate) retained.
-
-# 4) Additional recommendations for testing/monitoring
-
-# A) Fix your timestamp tracker choose conditions (optional but recommended):
-#    The choose conditions should use proper condition blocks, not raw templates.
 - id: ebike_track_onoff_timestamps
   alias: Ebike – Track last ON/OFF times
   mode: queued
@@ -759,16 +731,6 @@
               data:
                 datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
 
-  # B) Quick test plan:
-  #   - Temporarily set:
-  #       input_number.ebike_start_threshold_w = 10
-  #       input_number.ebike_start_dwell_min = 1
-  #   - Watch Automation Traces for this automation to see "trigger: matching for X minutes".
-  #   - Ensure input_select.ebike_charge_state is 'idle' or 'paused'.
-  #   - Verify that schedule.peak_demand isn't blocking (or set input_boolean.ebike_block_peak = off).
-  #   - Confirm switch turns on and logbook/persistent notification entries appear.
-
-  # C) Optional: create a visibility binary sensor to know when start conditions are met:
   template:
     - binary_sensor:
         - name: "Ebike Solar Start Window"
